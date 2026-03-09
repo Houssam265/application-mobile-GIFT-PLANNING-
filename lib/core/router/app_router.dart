@@ -1,22 +1,21 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import '../../features/auth/presentation/register_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/register',
     routes: [
+      GoRoute(
+        path: '/register',
+        name: 'register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
         builder: (context, state) => const Scaffold(
           body: Center(child: Text('Login — GP-04')),
-        ),
-      ),
-      GoRoute(
-        path: '/register',
-        name: 'register',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Register — GP-02')),
         ),
       ),
       GoRoute(

@@ -1,4 +1,4 @@
 class SupabaseConstants {
-  static const String supabaseUrl = 'YOUR_SUPABASE_URL';
-  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static const String supabaseUrl = 'https://lvahlaishpyakjygmceo.supabase.co';
+  static const String supabaseAnonKey = 'sb_publishable_JygTVZitZVtz7s_zAYe2iw_myNWgnYn';
 }
