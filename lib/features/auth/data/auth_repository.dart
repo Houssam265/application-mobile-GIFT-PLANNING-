@@ -16,4 +16,18 @@ class AuthRepository {
       throw Exception('Inscription échouée. Vérifie ton email.');
     }
   }
+
+  Future<void> login({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+
+    if (response.user == null) {
+      throw Exception('Connexion échouée. Vérifie tes identifiants.');
+    }
+  }
 }

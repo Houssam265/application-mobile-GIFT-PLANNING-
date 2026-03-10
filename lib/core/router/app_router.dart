@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
 class AppRouteName {
@@ -52,15 +54,15 @@ class AppRouteName {
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/register',
+    initialLocation: '/login', // Remis sur /login par défaut
+    // Rafraîchir l'arbre de routage automatiquement à chaque changement d'état d'auth (login / logout)
+    refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
     routes: [
       // ── Auth ────────────────────────────────────────────────
       GoRoute(
         path: '/login',
         name: AppRouteName.login,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Login — GP-04')),
-        ),
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: '/register',
@@ -86,8 +88,20 @@ class AppRouter {
       GoRoute(
         path: '/home',
         name: AppRouteName.home,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Dashboard — GP-17')),
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Dashboard — GP-17'),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  child: const Text('Se déconnecter'),
+                )
+              ],
+            ),
+          ),
         ),
       ),
       GoRoute(

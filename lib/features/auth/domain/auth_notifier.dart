@@ -28,4 +28,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     }
   }
+
+  Future<void> login(String email, String password) async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.login(email: email, password: password);
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      String errorMessage = 'Erreur inattendue';
+      final errorStr = e.toString().toLowerCase();
+      
+      if (errorStr.contains('invalid login credentials')) {
+        errorMessage = 'Email ou mot de passe incorrect.';
+      } else if (errorStr.contains('email not confirmed')) {
+        errorMessage = 'Veuillez vérifier votre email avant de vous connecter.';
+      } else {
+        errorMessage = e.toString();
+      }
+
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: errorMessage,
+      );
+    }
+  }
 }
