@@ -52,4 +52,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     }
   }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.sendPasswordResetEmail(email);
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: 'Erreur Supabase : ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.updatePassword(newPassword);
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: 'Échec de la mise à jour du mot de passe.',
+      );
+    }
+  }
 }
