@@ -302,6 +302,77 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   ),
                                 ),
                               ),
+                              
+                        const SizedBox(height: 32),
+                        
+                        // Séparateur
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade300, thickness: 1.5)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'Ou s\'inscrire avec',
+                                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 14),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade300, thickness: 1.5)),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+
+                        // Boutons sociaux
+                        Column(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                ref.read(authNotifierProvider.notifier).signInWithGoogle();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.grey.shade800,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(color: Colors.grey.shade300, width: 1.5),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.g_mobiledata_rounded, color: Colors.redAccent, size: 32),
+                                  const SizedBox(width: 8),
+                                  const Text('Continuer avec Google', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                ref.read(authNotifierProvider.notifier).signInWithFacebook();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1877F2), // Bleu Facebook
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.facebook_rounded, color: Colors.white, size: 28),
+                                  SizedBox(width: 8),
+                                  Text('Continuer avec Facebook', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),

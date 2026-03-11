@@ -78,4 +78,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     }
   }
+
+  Future<void> signInWithGoogle() async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.signInWithGoogle();
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: 'Erreur Google : ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> signInWithFacebook() async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.signInWithFacebook();
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: 'Erreur Facebook : ${e.toString()}',
+      );
+    }
+  }
 }

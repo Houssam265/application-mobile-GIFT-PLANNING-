@@ -31,7 +31,6 @@ dependencies:
   flutter_image_compress: ^2.1.0
 
   # ── OAuth Social Login ────────────────────────────
-  google_sign_in: ^6.2.0
 
 dev_dependencies:
   flutter_test:
