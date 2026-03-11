@@ -4,32 +4,29 @@ import 'package:go_router/go_router.dart';
 import '../domain/auth_notifier.dart';
 import '../domain/auth_state.dart';
 
-class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
   bool _obscurePassword = true;
-  bool _obscureConfirm = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authNotifierProvider.notifier).register(
+    ref.read(authNotifierProvider.notifier).login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
@@ -89,27 +86,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     // Réagir aux changements d'état
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.status == AuthStatus.success) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Inscription réussie ! 🎉', style: TextStyle(fontWeight: FontWeight.bold)),
-            content: const Text(
-              'Un email de confirmation a été envoyé.\n'
-                  'Vérifiez votre boîte mail avant de vous connecter.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.go('/login');
-                },
-                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E86AB))),
-              ),
-            ],
-          ),
-        );
+        // La redirection vers /home (ou autre) sera gérée par le routeur
+        // lorsqu'il détectera que l'utilisateur est connecté via le onAuthStateChange,
+        // mais on peut aussi forcer la redirection ici si on le souhaite.
+        context.go('/home');
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -124,7 +104,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F9), // Fond principal très léger
+      backgroundColor: const Color(0xFFF4F7F9),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -156,7 +136,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           borderRadius: BorderRadius.circular(100),
                           child: Image.asset(
                             'assets/images/logo_text.png', 
-                            height: 140, // Assez grand pour lire le slogan
+                            height: 140,
                             width: 140,
                             fit: BoxFit.cover,
                           ),
@@ -185,7 +165,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Créer un compte',
+                          'Bon retour',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
@@ -195,7 +175,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Rejoignez l\'aventure et planifiez vos cadeaux en toute simplicité.',
+                          'Connectez-vous pour retrouver vos listes de cadeaux.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey.shade500,
@@ -234,35 +214,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Mot de passe obligatoire';
-                            if (value.length < 6) return 'Minimum 6 caractères';
                             return null;
                           },
                         ),
+                        
+                        // Mot de passe oublié
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.go('/forgot-password'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF2E86AB),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                            ),
+                            child: const Text(
+                              'Mot de passe oublié ?',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        
                         const SizedBox(height: 16),
 
-                        // Confirmer mot de passe
-                        _buildTextField(
-                          controller: _confirmController,
-                          labelText: 'Confirmez le mot de passe',
-                          prefixIcon: Icons.lock_outline_rounded,
-                          obscureText: _obscureConfirm,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              color: Colors.grey.shade500,
-                            ),
-                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                          ),
-                          validator: (value) {
-                            if (value != _passwordController.text) {
-                              return 'Les mots de passe ne correspondent pas';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Bouton Inscription
+                        // Bouton Connexion
                         authState.status == AuthStatus.loading
                             ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E86AB)))
                             : Container(
@@ -292,7 +266,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     ),
                                   ),
                                   child: const Text(
-                                    'S\'inscrire',
+                                    'Me connecter',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -302,7 +276,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   ),
                                 ),
                               ),
-                              
+
                         const SizedBox(height: 32),
                         
                         // Séparateur
@@ -312,7 +286,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
-                                'Ou s\'inscrire avec',
+                                'Ou continuer avec',
                                 style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 14),
                               ),
                             ),
@@ -342,6 +316,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  // L'icône Material ne ressemble pas exactement au logo Google multicolore, 
+                                  // mais c'est standard. Pour rester sans images externes :
                                   const Icon(Icons.g_mobiledata_rounded, color: Colors.redAccent, size: 32),
                                   const SizedBox(width: 8),
                                   const Text('Continuer avec Google', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -379,22 +355,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Lien vers Login
+                  // Lien vers Register
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Déjà un compte ?',
+                        'Nouveau parmi nous ?',
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/login'),
+                        onPressed: () => context.go('/register'),
                         style: TextButton.styleFrom(
                           foregroundColor: const Color(0xFF2E86AB),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text(
-                          'Se connecter',
+                          'S\'inscrire',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
