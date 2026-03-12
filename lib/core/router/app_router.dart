@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/lists/presentation/list_create_screen.dart';
+import '../../features/lists/presentation/list_detail_screen.dart';
 import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
@@ -140,11 +141,7 @@ class AppRouter {
         name: AppRouteName.listDetail,
         builder: (context, state) {
           final listId = state.pathParameters['id'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Détail Liste $listId — GP-14 / GP-15'),
-            ),
-          );
+          return ListDetailScreen(listId: listId);
         },
       ),
       GoRoute(
