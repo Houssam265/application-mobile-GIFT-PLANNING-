@@ -11,6 +11,7 @@ class AuthRepository {
     final response = await _client.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: kIsWeb ? null : 'giftplan://login-callback/',
     );
 
     if (response.user == null) {

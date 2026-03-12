@@ -336,16 +336,16 @@ class AppRouter {
       // ── CAS 2 : Utilisateur CONNECTÉ ──
       final role = (user.userMetadata?['role'] as String?) ?? 'user';
 
+      // S'il est connecté ET qu'il arrive sur /reset-password (suite au clic sur le mail de Supabase)
+      // On le laisse accéder à la page pour modifier son mot de passe, on ne le renvoie pas sur /home !
+      if (isResetPasswordRoute) {
+        return null;
+      }
+
       // S'il est connecté mais qu'il tape l'URL de login/register/forgot-password, on l'envoie sur home
       if (isPublicAuthRoute) {
         if (role == 'admin') return '/admin';
         return '/home';
-      }
-
-      // S'il est connecté ET qu'il arrive sur /reset-password (suite au clic sur le mail de Supabase)
-      // On le laisse accéder à la page pour modifier son mot de passe !
-      if (isResetPasswordRoute) {
-        return null; 
       }
 
       // Redirection spécifique pour les admins qui tentent d'aller sur la home standard
