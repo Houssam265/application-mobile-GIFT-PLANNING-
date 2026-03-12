@@ -219,6 +219,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       );
     }
 
+    final isArchived = (_listData?['statut'] as String?) == 'ARCHIVEE';
     final dateEvenement = _eventDate ?? DateTime.now();
     final now = DateTime.now();
     final daysRemaining = dateEvenement.difference(
@@ -248,19 +249,35 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildHeaderCard(theme, dateEvenement, daysRemaining),
+              _buildHeaderCard(theme, dateEvenement, daysRemaining, isArchived),
               const SizedBox(height: 16),
               _buildFundingCard(theme),
               if (_isOwner) ...[
                 const SizedBox(height: 24),
                 if (_isSaving)
                   const LoadingWidget(message: 'Enregistrement des modifications...')
-                else if (_isEditing)
-                  AppButton(
-                    label: 'Enregistrer les modifications',
-                    onPressed: _saveChanges,
-                    variant: AppButtonVariant.primary,
-                  ),
+                else ...[
+                  if (_isEditing)
+                    AppButton(
+                      label: 'Enregistrer les modifications',
+                      onPressed: _saveChanges,
+                      variant: AppButtonVariant.primary,
+                    ),
+                  if (!_isEditing) ...[
+                    AppButton(
+                      label: isArchived ? 'Réactiver la liste' : 'Archiver la liste',
+                      onPressed: isArchived ? _reactivateList : _archiveList,
+                      variant: AppButtonVariant.secondary,
+                    ),
+                    const SizedBox(height: 12),
+                    if (isArchived)
+                      AppButton(
+                        label: 'Supprimer définitivement la liste',
+                        onPressed: _deleteList,
+                        variant: AppButtonVariant.text,
+                      ),
+                  ],
+                ],
               ],
               const SizedBox(height: 24),
             ],
@@ -274,6 +291,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     ThemeData theme,
     DateTime dateEvenement,
     int daysRemaining,
+    bool isArchived,
   ) {
     final coverUrl = _listData?['photo_couverture_url'] as String?;
 
@@ -301,7 +319,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                 fit: BoxFit.cover,
               ),
             ),
-          if (_isOwner) ...[
+          if (_isOwner && !isArchived) ...[
             const SizedBox(height: 8),
             AppButton(
               label: coverUrl == null && _newCoverBytes == null
@@ -382,6 +400,29 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             Text(
               _listData?['titre'] as String? ?? '',
               style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isArchived
+                        ? theme.colorScheme.surfaceVariant
+                        : theme.colorScheme.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    isArchived ? 'Archivée' : 'Active',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isArchived
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -517,6 +558,120 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _archiveList() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Archiver la liste ?'),
+        content: const Text(
+          'La liste sera déplacée dans les listes archivées. '
+          'Les participants ne pourront plus y contribuer, mais les données seront conservées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Archiver'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _repository.archiveList(widget.listId);
+      await _loadList();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l’archivage : $e')),
+      );
+    }
+  }
+
+  Future<void> _reactivateList() async {
+    if (_eventDate == null) {
+      await _selectEventDate();
+      if (_eventDate == null) {
+        return;
+      }
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Réactiver la liste ?'),
+        content: const Text(
+          'La liste sera réactivée avec la nouvelle date d’événement. '
+          'Les participants pourront à nouveau contribuer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Réactiver'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _repository.reactivateList(id: widget.listId, newEventDate: _eventDate!);
+      await _loadList();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la réactivation : $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteList() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer définitivement ?'),
+        content: const Text(
+          'Cette action est irréversible. La liste et toutes les données liées '
+          '(produits, contributions, participations, suggestions, notifications) '
+          'seront supprimées définitivement.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _repository.deleteArchivedList(widget.listId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la suppression : $e')),
+      );
+    }
   }
 }
 

@@ -156,6 +156,66 @@ class ListRepository {
     await _client.from('listes').update(payload).eq('id', id);
   }
 
+  /// Archive manuellement une liste (propriétaire uniquement).
+  Future<void> archiveList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final nowIso = DateTime.now().toIso8601String();
+
+    await _client
+        .from('listes')
+        .update({
+          'statut': 'ARCHIVEE',
+          'date_archivage': nowIso,
+          'date_modification': nowIso,
+        })
+        .eq('id', id)
+        .eq('proprietaire_id', user.id);
+  }
+
+  /// Réactive une liste archivée avec une nouvelle date d'événement.
+  Future<void> reactivateList({
+    required String id,
+    required DateTime newEventDate,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final dateEvenementIso = newEventDate.toIso8601String().split('T').first;
+    final nowIso = DateTime.now().toIso8601String();
+
+    await _client
+        .from('listes')
+        .update({
+          'statut': 'ACTIVE',
+          'date_evenement': dateEvenementIso,
+          'date_archivage': null,
+          'date_modification': nowIso,
+        })
+        .eq('id', id)
+        .eq('proprietaire_id', user.id);
+  }
+
+  /// Supprime définitivement une liste archivée (cascade sur produits, contributions, ...).
+  Future<void> deleteArchivedList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    await _client
+        .from('listes')
+        .delete()
+        .eq('id', id)
+        .eq('proprietaire_id', user.id)
+        .eq('statut', 'ARCHIVEE');
+  }
+
   String _generateCodePartage() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rand = Random.secure();
