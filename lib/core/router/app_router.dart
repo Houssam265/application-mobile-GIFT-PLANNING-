@@ -6,6 +6,7 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
+import '../../features/lists/presentation/list_create_screen.dart';
 import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
@@ -132,9 +133,7 @@ class AppRouter {
       GoRoute(
         path: '/list/new',
         name: AppRouteName.listCreate,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Créer une liste — GP-13')),
-        ),
+        builder: (context, state) => const ListCreateScreen(),
       ),
       GoRoute(
         path: '/list/:id',
