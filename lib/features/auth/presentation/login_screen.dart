@@ -49,7 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       decoration: InputDecoration(
         labelText: labelText,
         labelStyle: TextStyle(color: Colors.grey.shade600),
-        prefixIcon: Icon(prefixIcon, color: const Color(0xFF2E86AB).withOpacity(0.8)),
+        prefixIcon: Icon(prefixIcon, color: const Color(0xFF2E86AB).withValues(alpha: 0.8)),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -126,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2E86AB).withOpacity(0.15),
+                              color: const Color(0xFF2E86AB).withValues(alpha: 0.15),
                               blurRadius: 30,
                               offset: const Offset(0, 10),
                             ),
@@ -155,7 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       borderRadius: BorderRadius.circular(32),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -250,7 +250,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF2E86AB).withOpacity(0.3),
+                                      color: const Color(0xFF2E86AB).withValues(alpha: 0.3),
                                       blurRadius: 15,
                                       offset: const Offset(0, 8),
                                     ),

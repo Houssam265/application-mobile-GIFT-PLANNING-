@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+
 import '../domain/auth_notifier.dart';
 import '../domain/auth_state.dart';
 
@@ -48,7 +48,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       decoration: InputDecoration(
         labelText: labelText,
         labelStyle: TextStyle(color: Colors.grey.shade600),
-        prefixIcon: Icon(prefixIcon, color: const Color(0xFF2E86AB).withOpacity(0.8)),
+        prefixIcon: Icon(prefixIcon, color: const Color(0xFF2E86AB).withValues(alpha: 0.8)),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -134,7 +134,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     height: 100,
                     width: 100,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2E86AB).withOpacity(0.1),
+                      color: const Color(0xFF2E86AB).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -153,7 +153,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       borderRadius: BorderRadius.circular(32),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -237,7 +237,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF2E86AB).withOpacity(0.3),
+                                      color: const Color(0xFF2E86AB).withValues(alpha: 0.3),
                                       blurRadius: 15,
                                       offset: const Offset(0, 8),
                                     ),
