@@ -96,6 +96,11 @@ class AppRouter {
                 const Text('Dashboard — GP-17'),
                 const SizedBox(height: 20),
                 ElevatedButton(
+                  onPressed: () => context.goNamed(AppRouteName.listCreate),
+                  child: const Text('Créer une liste'),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
                   onPressed: () => Supabase.instance.client.auth.signOut(),
                   child: const Text('Se déconnecter'),
                 )

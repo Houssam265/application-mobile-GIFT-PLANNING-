@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/services/storage_service.dart';
+
 enum ListVisibility {
   public,
   private,
@@ -37,6 +39,7 @@ ListVisibility visibilityFromDb(String value) {
 
 class ListRepository {
   final SupabaseClient _client = Supabase.instance.client;
+  final _storage = StorageService();
 
   /// Crée une liste de souhaits dans la table `listes`.
   ///
@@ -58,21 +61,12 @@ class ListRepository {
     // 1) Upload éventuel de la photo de couverture dans le bucket Storage
     String? coverUrl;
     if (couvertureBytes != null && couvertureFileName != null) {
-      // Assumption: un bucket Supabase nommé "list-covers" existe.
-      final safeFileName = couvertureFileName.replaceAll(' ', '_');
-      final path = 'covers/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$safeFileName';
-
-      await _client.storage.from('list-covers').uploadBinary(
-            path,
-            couvertureBytes,
-            fileOptions: const FileOptions(
-              upsert: false,
-              // ContentType générique, Supabase peut le déduire plus finement si besoin
-              contentType: 'image/jpeg',
-            ),
-          );
-
-      coverUrl = _client.storage.from('list-covers').getPublicUrl(path);
+      coverUrl = await _storage.upload(
+        bucket: StorageBucket.listCovers,
+        bytes: couvertureBytes,
+        fileName: couvertureFileName,
+        folder: user.id,
+      );
     }
 
     // 2) Génération d'un code/slug unique
@@ -123,19 +117,12 @@ class ListRepository {
 
     String? coverUrl;
     if (couvertureBytes != null && couvertureFileName != null) {
-      final safeFileName = couvertureFileName.replaceAll(' ', '_');
-      final path = 'covers/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$safeFileName';
-
-      await _client.storage.from('list-covers').uploadBinary(
-            path,
-            couvertureBytes,
-            fileOptions: const FileOptions(
-              upsert: false,
-              contentType: 'image/jpeg',
-            ),
-          );
-
-      coverUrl = _client.storage.from('list-covers').getPublicUrl(path);
+      coverUrl = await _storage.upload(
+        bucket: StorageBucket.listCovers,
+        bytes: couvertureBytes,
+        fileName: couvertureFileName,
+        folder: user.id,
+      );
     }
 
     final dateEvenementIso = dateEvenement.toIso8601String().split('T').first;
