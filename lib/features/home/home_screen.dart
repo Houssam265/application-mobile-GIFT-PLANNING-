@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .from('listes')
         .select('id, titre')
         .eq('proprietaire_id', user.id)
+        .neq('statut', 'ARCHIVEE')
         .order('date_creation', ascending: false);
 
     setState(() {
@@ -78,8 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   initialValue: _selectedListId,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   items: _lists
                       .map(
@@ -96,9 +99,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: _selectedListId == null
                       ? null
                       : () => context.pushNamed(
-                            AppRouteName.listDetail,
-                            pathParameters: {'id': _selectedListId!},
-                          ),
+                          AppRouteName.listDetail,
+                          pathParameters: {'id': _selectedListId!},
+                        ),
                   child: const Text('Ouvrir la liste'),
                 ),
               ],
@@ -108,8 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // ── Déconnexion ───────────────────────────────────────
               TextButton(
-                onPressed: () =>
-                    Supabase.instance.client.auth.signOut(),
+                onPressed: () => Supabase.instance.client.auth.signOut(),
                 child: const Text('Se déconnecter'),
               ),
             ],

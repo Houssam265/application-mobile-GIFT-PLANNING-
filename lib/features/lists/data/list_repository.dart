@@ -1,15 +1,12 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/services/storage_service.dart';
 
-enum ListVisibility {
-  public,
-  private,
-  anonymous,
-}
+enum ListVisibility { public, private, anonymous }
 
 extension ListVisibilityDbExtension on ListVisibility {
   String get dbValue {
@@ -87,7 +84,11 @@ class ListRepository {
       'proprietaire_id': user.id,
     };
 
-    final response = await _client.from('listes').insert(payload).select('id').single();
+    final response = await _client
+        .from('listes')
+        .insert(payload)
+        .select('id')
+        .single();
 
     return response['id'] as String;
   }
@@ -195,6 +196,33 @@ class ListRepository {
       throw Exception('Utilisateur non connecté.');
     }
 
+    // 1. Fetch the list to check for a cover image
+    final listData = await _client
+        .from('listes')
+        .select('photo_couverture_url')
+        .eq('id', id)
+        .eq('proprietaire_id', user.id)
+        .eq('statut', 'ARCHIVEE')
+        .maybeSingle();
+
+    if (listData == null) return; // List not found or not archived
+
+    // 2. Delete the cover image from storage if it exists
+    final coverUrl = listData['photo_couverture_url'] as String?;
+    if (coverUrl != null && coverUrl.isNotEmpty) {
+      try {
+        final path = StorageService.pathFromUrl(
+          coverUrl,
+          StorageBucket.listCovers,
+        );
+        await _storage.delete(bucket: StorageBucket.listCovers, path: path);
+      } catch (e) {
+        // Log but don't block list deletion if storage deletion fails
+        debugPrint('Failed to delete list cover image: $e');
+      }
+    }
+
+    // 3. Delete the list row
     await _client
         .from('listes')
         .delete()
