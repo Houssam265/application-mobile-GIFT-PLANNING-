@@ -248,12 +248,14 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       ),
       floatingActionButton: _isOwner && !_isEditing
           ? FloatingActionButton.extended(
-              onPressed: () => context.goNamed(
+              onPressed: () => context.pushNamed(
                 AppRouteName.productAdd,
                 pathParameters: {'listId': widget.listId},
               ),
               icon: const Icon(Icons.add),
               label: const Text('Ajouter un produit'),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
             )
           : null,
       body: SafeArea(
@@ -564,6 +566,18 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      onTap: _isOwner && !_isEditing
+                          ? () {
+                              context.pushNamed(
+                                AppRouteName.productEdit,
+                                pathParameters: {
+                                  'listId': widget.listId,
+                                  'id': p['id'] as String,
+                                },
+                                extra: ProductModel.fromMap(p),
+                              );
+                            }
+                          : null,
                     );
                   },
                 ),

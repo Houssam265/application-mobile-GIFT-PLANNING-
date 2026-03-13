@@ -11,30 +11,29 @@ final productRepositoryProvider = Provider<ProductRepository>(
   (_) => ProductRepository(),
 );
 
-// ── Add-product state ─────────────────────────────────────────────────────────
+// ── Shared state ──────────────────────────────────────────────────────────────
 
-/// Sealed-like state for the add-product form submission.
-enum AddProductStatus { idle, loading, success, error }
+enum ProductFormStatus { idle, loading, success, error }
 
-class AddProductState {
-  const AddProductState({
-    this.status = AddProductStatus.idle,
-    this.createdProduct,
+class ProductFormState {
+  const ProductFormState({
+    this.status = ProductFormStatus.idle,
+    this.product,
     this.errorMessage,
   });
 
-  final AddProductStatus status;
-  final ProductModel? createdProduct;
+  final ProductFormStatus status;
+  final ProductModel? product;
   final String? errorMessage;
 
-  AddProductState copyWith({
-    AddProductStatus? status,
-    ProductModel? createdProduct,
+  ProductFormState copyWith({
+    ProductFormStatus? status,
+    ProductModel? product,
     String? errorMessage,
   }) {
-    return AddProductState(
+    return ProductFormState(
       status: status ?? this.status,
-      createdProduct: createdProduct ?? this.createdProduct,
+      product: product ?? this.product,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -42,8 +41,8 @@ class AddProductState {
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
-class AddProductNotifier extends StateNotifier<AddProductState> {
-  AddProductNotifier(this._repository) : super(const AddProductState());
+class ProductFormNotifier extends StateNotifier<ProductFormState> {
+  ProductFormNotifier(this._repository) : super(const ProductFormState());
 
   final ProductRepository _repository;
 
@@ -57,8 +56,7 @@ class AddProductNotifier extends StateNotifier<AddProductState> {
     String? lienUrl,
     ProductCategorie? categorie,
   }) async {
-    state = state.copyWith(status: AddProductStatus.loading);
-
+    state = state.copyWith(status: ProductFormStatus.loading);
     try {
       final product = await _repository.addProduct(
         listeId: listeId,
@@ -70,25 +68,64 @@ class AddProductNotifier extends StateNotifier<AddProductState> {
         lienUrl: lienUrl,
         categorie: categorie,
       );
-
-      state = state.copyWith(
-        status: AddProductStatus.success,
-        createdProduct: product,
-      );
+      state = state.copyWith(status: ProductFormStatus.success, product: product);
     } catch (e) {
       state = state.copyWith(
-        status: AddProductStatus.error,
-        errorMessage: e.toString(),
-      );
+          status: ProductFormStatus.error, errorMessage: e.toString());
     }
   }
 
-  void reset() => state = const AddProductState();
+  Future<void> updateProduct({
+    required String productId,
+    required String nom,
+    String? description,
+    required double prixCible,
+    Uint8List? imageBytes,
+    String? imageFileName,
+    String? lienUrl,
+    ProductCategorie? categorie,
+  }) async {
+    state = state.copyWith(status: ProductFormStatus.loading);
+    try {
+      final product = await _repository.updateProduct(
+        productId: productId,
+        nom: nom,
+        description: description,
+        prixCible: prixCible,
+        imageBytes: imageBytes,
+        imageFileName: imageFileName,
+        lienUrl: lienUrl,
+        categorie: categorie,
+      );
+      state = state.copyWith(status: ProductFormStatus.success, product: product);
+    } catch (e) {
+      state = state.copyWith(
+          status: ProductFormStatus.error, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> deleteProduct(ProductModel product) async {
+    state = state.copyWith(status: ProductFormStatus.loading);
+    try {
+      await _repository.deleteProduct(product);
+      state = state.copyWith(status: ProductFormStatus.success);
+    } catch (e) {
+      state = state.copyWith(
+          status: ProductFormStatus.error, errorMessage: e.toString());
+    }
+  }
+
+  void reset() => state = const ProductFormState();
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// ── Providers ─────────────────────────────────────────────────────────────────
 
-final addProductProvider =
-    StateNotifierProvider.autoDispose<AddProductNotifier, AddProductState>(
-  (ref) => AddProductNotifier(ref.watch(productRepositoryProvider)),
+/// Used by the add/edit product form.
+final productFormProvider =
+    StateNotifierProvider.autoDispose<ProductFormNotifier, ProductFormState>(
+  (ref) => ProductFormNotifier(ref.watch(productRepositoryProvider)),
 );
+
+/// Kept for backward compatibility — resolves to the same notifier.
+@Deprecated('Use productFormProvider')
+final addProductProvider = productFormProvider;

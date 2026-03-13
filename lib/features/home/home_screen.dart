@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.add),
                 label: const Text('Créer une liste'),
-                onPressed: () => context.goNamed(AppRouteName.listCreate),
+                onPressed: () => context.pushNamed(AppRouteName.listCreate),
               ),
               const SizedBox(height: 24),
               const Divider(),
@@ -75,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               else ...[
                 DropdownButtonFormField<String>(
-                  value: _selectedListId,
+                  initialValue: _selectedListId,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     contentPadding:
@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ElevatedButton(
                   onPressed: _selectedListId == null
                       ? null
-                      : () => context.goNamed(
+                      : () => context.pushNamed(
                             AppRouteName.listDetail,
                             pathParameters: {'id': _selectedListId!},
                           ),

@@ -9,6 +9,7 @@ import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
+import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
 import 'go_router_refresh_stream.dart';
 
@@ -166,11 +167,10 @@ class AppRouter {
         name: AppRouteName.productEdit,
         builder: (context, state) {
           final listId = state.pathParameters['listId'] ?? '';
-          final productId = state.pathParameters['id'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Modifier produit $productId de la liste $listId — GP-22'),
-            ),
+          final product = state.extra as ProductModel?;
+          return AddProductScreen(
+            listId: listId,
+            existingProduct: product,
           );
         },
       ),

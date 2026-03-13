@@ -55,7 +55,69 @@ class ProductRepository {
         .select()
         .single();
 
-    return ProductModel.fromMap(response as Map<String, dynamic>);
+    return ProductModel.fromMap(response);
+  }
+
+  /// Updates an existing product. Only uploads a new image if [imageBytes] is provided.
+  Future<ProductModel> updateProduct({
+    required String productId,
+    required String nom,
+    String? description,
+    required double prixCible,
+    Uint8List? imageBytes,
+    String? imageFileName,
+    String? lienUrl,
+    ProductCategorie? categorie,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Utilisateur non connecté.');
+
+    String? imageUrl;
+    if (imageBytes != null && imageFileName != null) {
+      imageUrl = await _storage.upload(
+        bucket: StorageBucket.products,
+        bytes: imageBytes,
+        fileName: imageFileName,
+        folder: user.id,
+      );
+    }
+
+    final payload = <String, dynamic>{
+      'nom': nom,
+      'description': description,
+      'prix_cible': prixCible,
+      'lien_url': lienUrl?.isNotEmpty == true ? lienUrl : null,
+      'categorie': categorie?.dbValue,
+      'date_modification': DateTime.now().toIso8601String(),
+    };
+
+    if (imageUrl != null) payload['image_url'] = imageUrl;
+
+    final response = await _client
+        .from('produits')
+        .update(payload)
+        .eq('id', productId)
+        .select()
+        .single();
+
+    return ProductModel.fromMap(response);
+  }
+
+
+
+  /// Deletes a product permanently and removes its image from storage if it exists.
+  Future<void> deleteProduct(ProductModel product) async {
+    // 1. Delete image from storage if it exists
+    if (product.imageUrl != null) {
+      final path = StorageService.pathFromUrl(
+        product.imageUrl!,
+        StorageBucket.products,
+      );
+      await _storage.delete(bucket: StorageBucket.products, path: path);
+    }
+
+    // 2. Delete row from database
+    await _client.from('produits').delete().eq('id', product.id);
   }
 
   /// Fetches all products belonging to [listeId].
