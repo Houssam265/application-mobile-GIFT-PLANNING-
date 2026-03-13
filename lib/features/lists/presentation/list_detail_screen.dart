@@ -16,10 +16,7 @@ import '../../lists/data/list_repository.dart';
 import '../../products/domain/product_model.dart';
 
 class ListDetailScreen extends StatefulWidget {
-  const ListDetailScreen({
-    super.key,
-    required this.listId,
-  });
+  const ListDetailScreen({super.key, required this.listId});
 
   final String listId;
 
@@ -81,7 +78,8 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
         _eventDate = DateTime.tryParse(dateStr);
       }
 
-      final visibilityStr = data['visibilite_contributions'] as String? ?? 'PUBLIC';
+      final visibilityStr =
+          data['visibilite_contributions'] as String? ?? 'PUBLIC';
       _visibility = visibilityFromDb(visibilityStr);
     } catch (e) {
       if (!mounted) return;
@@ -146,7 +144,9 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
   Future<void> _saveChanges() async {
     if (_eventDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Merci de choisir la date de l’événement.')),
+        const SnackBar(
+          content: Text('Merci de choisir la date de l’événement.'),
+        ),
       );
       return;
     }
@@ -225,9 +225,9 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     final isArchived = (_listData?['statut'] as String?) == 'ARCHIVEE';
     final dateEvenement = _eventDate ?? DateTime.now();
     final now = DateTime.now();
-    final daysRemaining = dateEvenement.difference(
-      DateTime(now.year, now.month, now.day),
-    ).inDays;
+    final daysRemaining = dateEvenement
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
 
     return Scaffold(
       appBar: AppBar(
@@ -272,7 +272,9 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
               if (_isOwner) ...[
                 const SizedBox(height: 24),
                 if (_isSaving)
-                  const LoadingWidget(message: 'Enregistrement des modifications...')
+                  const LoadingWidget(
+                    message: 'Enregistrement des modifications...',
+                  )
                 else ...[
                   if (_isEditing)
                     AppButton(
@@ -282,7 +284,9 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                     ),
                   if (!_isEditing) ...[
                     AppButton(
-                      label: isArchived ? 'Réactiver la liste' : 'Archiver la liste',
+                      label: isArchived
+                          ? 'Réactiver la liste'
+                          : 'Archiver la liste',
                       onPressed: isArchived ? _reactivateList : _archiveList,
                       variant: AppButtonVariant.secondary,
                     ),
@@ -422,7 +426,10 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: isArchived
                         ? theme.colorScheme.surfaceVariant
@@ -468,8 +475,8 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                   daysRemaining > 0
                       ? '$daysRemaining jours restants'
                       : daysRemaining == 0
-                          ? 'Événement aujourd’hui'
-                          : 'Événement passé',
+                      ? 'Événement aujourd’hui'
+                      : 'Événement passé',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -496,8 +503,10 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Produits (${products.length})',
-                  style: theme.textTheme.titleMedium),
+              Text(
+                'Produits (${products.length})',
+                style: theme.textTheme.titleMedium,
+              ),
               if (!snapshot.hasData)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
@@ -519,65 +528,158 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final p = products[index];
+                    final productId = p['id'] as String;
                     final imageUrl = p['image_url'] as String?;
-                    final prix = double.tryParse(
-                          p['prix_cible'].toString(),
-                        ) ??
-                        0.0;
+                    final prix =
+                        double.tryParse(p['prix_cible'].toString()) ?? 0.0;
                     final cat = p['categorie'] as String?;
+                    final currentStatus =
+                        p['statut_financement'] as String? ??
+                        StatutFinancement.nonFinance.dbValue;
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 0,
-                        vertical: 4,
-                      ),
-                      leading: imageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: CachedNetworkImage(
-                                imageUrl: imageUrl,
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
+                    return StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: Supabase.instance.client
+                          .from('contributions')
+                          .stream(primaryKey: ['id'])
+                          .eq('produit_id', productId),
+                      builder: (context, contribSnapshot) {
+                        final contributions = (contribSnapshot.data ?? [])
+                            .where((c) => c['est_annulee'] != true)
+                            .toList();
+                        final double totalPromised = contributions.fold(
+                          0.0,
+                          (sum, c) =>
+                              sum +
+                              (double.tryParse(c['montant'].toString()) ?? 0.0),
+                        );
+
+                        final percentage = prix > 0
+                            ? (totalPromised / prix).clamp(0.0, 1.0)
+                            : 0.0;
+                        final remaining = (prix - totalPromised).clamp(
+                          0.0,
+                          double.infinity,
+                        );
+
+                        Color progressColor;
+                        StatutFinancement calculatedStatus;
+                        if (percentage == 0) {
+                          progressColor = Colors.red;
+                          calculatedStatus = StatutFinancement.nonFinance;
+                        } else if (percentage < 1) {
+                          progressColor = Colors.orange;
+                          calculatedStatus =
+                              StatutFinancement.partiellementFinance;
+                        } else {
+                          progressColor = Colors.green;
+                          calculatedStatus = StatutFinancement.finance;
+                        }
+
+                        // Fire and forget: update status in DB if it changed
+                        if (currentStatus != calculatedStatus.dbValue) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            Supabase.instance.client
+                                .from('produits')
+                                .update({
+                                  'statut_financement':
+                                      calculatedStatus.dbValue,
+                                })
+                                .eq('id', productId);
+                          });
+                        }
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 0,
+                            vertical: 4,
+                          ),
+                          leading: imageUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.inventory_2_outlined),
+                                ),
+                          title: Text(
+                            p['nom'] as String? ?? '',
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (cat != null)
+                                Text(
+                                  productCategorieFromDb(cat).label,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: percentage,
+                                  backgroundColor: progressColor.withOpacity(
+                                    0.2,
+                                  ),
+                                  color: progressColor,
+                                  minHeight: 6,
+                                ),
                               ),
-                            )
-                          : Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceVariant,
-                                borderRadius: BorderRadius.circular(8),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${totalPromised.toStringAsFixed(2)} € / ${prix.toStringAsFixed(2)} €',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: progressColor,
+                                    ),
+                                  ),
+                                  if (remaining > 0)
+                                    Text(
+                                      'Reste ${remaining.toStringAsFixed(2)} €',
+                                      style: theme.textTheme.bodySmall,
+                                    )
+                                  else
+                                    Text(
+                                      'Complet !',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                ],
                               ),
-                              child: const Icon(Icons.inventory_2_outlined),
-                            ),
-                      title: Text(
-                        p['nom'] as String? ?? '',
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                      subtitle: cat != null
-                          ? Text(
-                              productCategorieFromDb(cat).label,
-                              style: theme.textTheme.bodySmall,
-                            )
-                          : null,
-                      trailing: Text(
-                        '${prix.toStringAsFixed(2)} €',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onTap: _isOwner && !_isEditing
-                          ? () {
-                              context.pushNamed(
-                                AppRouteName.productEdit,
-                                pathParameters: {
-                                  'listId': widget.listId,
-                                  'id': p['id'] as String,
-                                },
-                                extra: ProductModel.fromMap(p),
-                              );
-                            }
-                          : null,
+                            ],
+                          ),
+                          onTap: _isOwner && !_isEditing
+                              ? () {
+                                  context.pushNamed(
+                                    AppRouteName.productEdit,
+                                    pathParameters: {
+                                      'listId': widget.listId,
+                                      'id': productId,
+                                    },
+                                    extra: ProductModel.fromMap(p),
+                                  );
+                                }
+                              : null,
+                        );
+                      },
                     );
                   },
                 ),
@@ -611,10 +713,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Financement global',
-                  style: theme.textTheme.titleMedium,
-                ),
+                Text('Financement global', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text(
                   'Aucun produit pour le moment. Ajoute des produits pour commencer le financement.',
@@ -640,13 +739,17 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           stream: contributionsStream,
           builder: (context, snapshotContribs) {
             final contribs = snapshotContribs.data ?? [];
-            final totalPromised = contribs.where((c) => c['est_annulee'] != true).fold<double>(
+            final totalPromised = contribs
+                .where((c) => c['est_annulee'] != true)
+                .fold<double>(
                   0,
-                  (sum, c) => sum + (double.tryParse(c['montant'].toString()) ?? 0),
+                  (sum, c) =>
+                      sum + (double.tryParse(c['montant'].toString()) ?? 0),
                 );
 
-            final percent =
-                totalTarget <= 0 ? 0.0 : (totalPromised / totalTarget * 100).clamp(0, 100);
+            final percent = totalTarget <= 0
+                ? 0.0
+                : (totalPromised / totalTarget * 100).clamp(0, 100);
 
             return AppCard(
               child: Column(
@@ -752,7 +855,10 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     if (confirm != true) return;
 
     try {
-      await _repository.reactivateList(id: widget.listId, newEventDate: _eventDate!);
+      await _repository.reactivateList(
+        id: widget.listId,
+        newEventDate: _eventDate!,
+      );
       await _loadList();
     } catch (e) {
       if (!mounted) return;
@@ -790,7 +896,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     try {
       await _repository.deleteArchivedList(widget.listId);
       if (!mounted) return;
-      Navigator.of(context).pop();
+      context.go('/');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -799,4 +905,3 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     }
   }
 }
-
