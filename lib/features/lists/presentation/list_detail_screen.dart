@@ -2,15 +2,18 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/loading_widget.dart';
 import '../../lists/data/list_repository.dart';
+import '../../products/domain/product_model.dart';
 
 class ListDetailScreen extends StatefulWidget {
   const ListDetailScreen({
@@ -243,6 +246,16 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             ),
         ],
       ),
+      floatingActionButton: _isOwner && !_isEditing
+          ? FloatingActionButton.extended(
+              onPressed: () => context.goNamed(
+                AppRouteName.productAdd,
+                pathParameters: {'listId': widget.listId},
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter un produit'),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.padding),
@@ -252,6 +265,8 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
               _buildHeaderCard(theme, dateEvenement, daysRemaining, isArchived),
               const SizedBox(height: 16),
               _buildFundingCard(theme),
+              const SizedBox(height: 16),
+              _buildProductsCard(theme),
               if (_isOwner) ...[
                 const SizedBox(height: 24),
                 if (_isSaving)
@@ -279,7 +294,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                   ],
                 ],
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 80), // space for FAB
             ],
           ),
         ),
@@ -460,6 +475,102 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildProductsCard(ThemeData theme) {
+    final productsStream = Supabase.instance.client
+        .from('produits')
+        .stream(primaryKey: ['id'])
+        .eq('liste_id', widget.listId)
+        .order('date_creation', ascending: true);
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: productsStream,
+      builder: (context, snapshot) {
+        final products = snapshot.data ?? [];
+
+        return AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Produits (${products.length})',
+                  style: theme.textTheme.titleMedium),
+              if (!snapshot.hasData)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: LinearProgressIndicator(),
+                )
+              else if (products.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Aucun produit pour le moment.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: products.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final p = products[index];
+                    final imageUrl = p['image_url'] as String?;
+                    final prix = double.tryParse(
+                          p['prix_cible'].toString(),
+                        ) ??
+                        0.0;
+                    final cat = p['categorie'] as String?;
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 0,
+                        vertical: 4,
+                      ),
+                      leading: imageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceVariant,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.inventory_2_outlined),
+                            ),
+                      title: Text(
+                        p['nom'] as String? ?? '',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      subtitle: cat != null
+                          ? Text(
+                              productCategorieFromDb(cat).label,
+                              style: theme.textTheme.bodySmall,
+                            )
+                          : null,
+                      trailing: Text(
+                        '${prix.toStringAsFixed(2)} €',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

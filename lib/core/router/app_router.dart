@@ -6,8 +6,10 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/reset_password_screen.dart';
+import '../../features/home/home_screen.dart';
 import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
+import '../../features/products/presentation/add_product_screen.dart';
 import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
@@ -88,26 +90,7 @@ class AppRouter {
       GoRoute(
         path: '/home',
         name: AppRouteName.home,
-        builder: (context, state) => Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Dashboard — GP-17'),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => context.goNamed(AppRouteName.listCreate),
-                  child: const Text('Créer une liste'),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () => Supabase.instance.client.auth.signOut(),
-                  child: const Text('Se déconnecter'),
-                )
-              ],
-            ),
-          ),
-        ),
+        builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
         path: '/dashboard/lists',
@@ -175,11 +158,7 @@ class AppRouter {
         name: AppRouteName.productAdd,
         builder: (context, state) {
           final listId = state.pathParameters['listId'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Ajouter un produit à la liste $listId — GP-21'),
-            ),
-          );
+          return AddProductScreen(listId: listId);
         },
       ),
       GoRoute(
