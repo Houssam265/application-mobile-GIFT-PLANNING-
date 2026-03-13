@@ -1,0 +1,217 @@
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/services/storage_service.dart';
+
+enum ListVisibility {
+  public,
+  private,
+  anonymous,
+}
+
+extension ListVisibilityDbExtension on ListVisibility {
+  String get dbValue {
+    switch (this) {
+      case ListVisibility.public:
+        return 'PUBLIC';
+      case ListVisibility.private:
+        return 'PRIVE';
+      case ListVisibility.anonymous:
+        return 'ANONYME';
+    }
+  }
+}
+
+ListVisibility visibilityFromDb(String value) {
+  switch (value.toUpperCase()) {
+    case 'PUBLIC':
+      return ListVisibility.public;
+    case 'PRIVE':
+      return ListVisibility.private;
+    case 'ANONYME':
+      return ListVisibility.anonymous;
+    default:
+      return ListVisibility.public;
+  }
+}
+
+class ListRepository {
+  final SupabaseClient _client = Supabase.instance.client;
+  final _storage = StorageService();
+
+  /// Crée une liste de souhaits dans la table `listes`.
+  ///
+  /// Retourne l'id de la liste créée.
+  Future<String> createList({
+    required String titre,
+    String? description,
+    required String nomEvenement,
+    required DateTime dateEvenement,
+    Uint8List? couvertureBytes,
+    String? couvertureFileName,
+    required ListVisibility visibility,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    // 1) Upload éventuel de la photo de couverture dans le bucket Storage
+    String? coverUrl;
+    if (couvertureBytes != null && couvertureFileName != null) {
+      coverUrl = await _storage.upload(
+        bucket: StorageBucket.listCovers,
+        bytes: couvertureBytes,
+        fileName: couvertureFileName,
+        folder: user.id,
+      );
+    }
+
+    // 2) Génération d'un code/slug unique
+    final codePartage = _generateCodePartage();
+    final slug = _generateSlug();
+
+    final dateEvenementIso = dateEvenement.toIso8601String().split('T').first;
+
+    final payload = {
+      'titre': titre,
+      'description': description,
+      'nom_evenement': nomEvenement,
+      'date_evenement': dateEvenementIso,
+      'photo_couverture_url': coverUrl,
+      'lien_partage': 'giftplan.app/liste/$slug',
+      'code_partage': codePartage,
+      'visibilite_contributions': visibility.dbValue,
+      'proprietaire_id': user.id,
+    };
+
+    final response = await _client.from('listes').insert(payload).select('id').single();
+
+    return response['id'] as String;
+  }
+
+  /// Récupère les informations d'une liste par son id.
+  Future<Map<String, dynamic>> getListById(String id) async {
+    final data = await _client.from('listes').select().eq('id', id).single();
+
+    return data as Map<String, dynamic>;
+  }
+
+  /// Met à jour une liste existante.
+  Future<void> updateList({
+    required String id,
+    required String titre,
+    String? description,
+    required String nomEvenement,
+    required DateTime dateEvenement,
+    Uint8List? couvertureBytes,
+    String? couvertureFileName,
+    required ListVisibility visibility,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    String? coverUrl;
+    if (couvertureBytes != null && couvertureFileName != null) {
+      coverUrl = await _storage.upload(
+        bucket: StorageBucket.listCovers,
+        bytes: couvertureBytes,
+        fileName: couvertureFileName,
+        folder: user.id,
+      );
+    }
+
+    final dateEvenementIso = dateEvenement.toIso8601String().split('T').first;
+
+    final payload = <String, dynamic>{
+      'titre': titre,
+      'description': description,
+      'nom_evenement': nomEvenement,
+      'date_evenement': dateEvenementIso,
+      'visibilite_contributions': visibility.dbValue,
+      'date_modification': DateTime.now().toIso8601String(),
+    };
+
+    if (coverUrl != null) {
+      payload['photo_couverture_url'] = coverUrl;
+    }
+
+    await _client.from('listes').update(payload).eq('id', id);
+  }
+
+  /// Archive manuellement une liste (propriétaire uniquement).
+  Future<void> archiveList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final nowIso = DateTime.now().toIso8601String();
+
+    await _client
+        .from('listes')
+        .update({
+          'statut': 'ARCHIVEE',
+          'date_archivage': nowIso,
+          'date_modification': nowIso,
+        })
+        .eq('id', id)
+        .eq('proprietaire_id', user.id);
+  }
+
+  /// Réactive une liste archivée avec une nouvelle date d'événement.
+  Future<void> reactivateList({
+    required String id,
+    required DateTime newEventDate,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final dateEvenementIso = newEventDate.toIso8601String().split('T').first;
+    final nowIso = DateTime.now().toIso8601String();
+
+    await _client
+        .from('listes')
+        .update({
+          'statut': 'ACTIVE',
+          'date_evenement': dateEvenementIso,
+          'date_archivage': null,
+          'date_modification': nowIso,
+        })
+        .eq('id', id)
+        .eq('proprietaire_id', user.id);
+  }
+
+  /// Supprime définitivement une liste archivée (cascade sur produits, contributions, ...).
+  Future<void> deleteArchivedList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    await _client
+        .from('listes')
+        .delete()
+        .eq('id', id)
+        .eq('proprietaire_id', user.id)
+        .eq('statut', 'ARCHIVEE');
+  }
+
+  String _generateCodePartage() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rand = Random.secure();
+    return List.generate(8, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+
+  String _generateSlug() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final rand = Random.secure();
+    return List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+}
