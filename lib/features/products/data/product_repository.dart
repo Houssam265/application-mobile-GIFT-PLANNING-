@@ -132,4 +132,19 @@ class ProductRepository {
         .map((e) => ProductModel.fromMap(e as Map<String, dynamic>))
         .toList();
   }
+
+  /// Fetches a single product by its id.
+  Future<ProductModel> getProductById(String productId) async {
+    final response = await _client
+        .from('produits')
+        .select()
+        .eq('id', productId)
+        .maybeSingle();
+
+    if (response == null) {
+      throw Exception('Produit introuvable.');
+    }
+
+    return ProductModel.fromMap(response);
+  }
 }
