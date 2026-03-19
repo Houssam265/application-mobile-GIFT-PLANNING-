@@ -605,6 +605,13 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                         final contributions = (contribSnapshot.data ?? [])
                             .where((c) => c['est_annulee'] != true)
                             .toList();
+                        final currentUserId =
+                            Supabase.instance.client.auth.currentUser?.id;
+                        final hasMyContribution = currentUserId == null
+                            ? false
+                            : contributions.any((c) =>
+                                c['utilisateur_id'] == currentUserId &&
+                                c['est_annulee'] != true);
                         final double totalPromised = contributions.fold(
                           0.0,
                           (sum, c) =>
@@ -723,6 +730,38 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                                     ),
                                 ],
                               ),
+                              if (hasMyContribution)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: AppButton(
+                                      label: 'Ma contribution',
+                                      onPressed: () => context.pushNamed(
+                                        AppRouteName.contribute,
+                                        pathParameters: {'id': productId},
+                                      ),
+                                      variant: AppButtonVariant.secondary,
+                                      fullWidth: false,
+                                    ),
+                                  ),
+                                )
+                              else if (remaining > 0.01)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: AppButton(
+                                      label: 'Contribuer',
+                                      onPressed: () => context.pushNamed(
+                                        AppRouteName.contribute,
+                                        pathParameters: {'id': productId},
+                                      ),
+                                      variant: AppButtonVariant.text,
+                                      fullWidth: false,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           onTap: _isOwner && !_isEditing

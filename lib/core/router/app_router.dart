@@ -11,7 +11,10 @@ import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
+
 import '../../features/lists/presentation/participants_manage_screen.dart';
+import '../../features/contributions/presentation/contribute_screen.dart';
+
 import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
@@ -194,11 +197,7 @@ class AppRouter {
         name: AppRouteName.contribute,
         builder: (context, state) {
           final productId = state.pathParameters['id'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Contribuer au produit $productId — GP-27 / GP-28'),
-            ),
-          );
+          return ContributeScreen(productId: productId);
         },
       ),
       GoRoute(
