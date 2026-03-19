@@ -11,6 +11,7 @@ import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
@@ -109,9 +110,7 @@ class AppRouter {
       GoRoute(
         path: '/profile',
         name: AppRouteName.profile,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Profil utilisateur — GP-06 / GP-07')),
-        ),
+        builder: (context, state) => const ProfileScreen(),
       ),
 
       // ── Centre de notifications ────────────────────────────
