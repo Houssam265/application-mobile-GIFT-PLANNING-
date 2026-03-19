@@ -14,6 +14,7 @@ import '../../features/products/presentation/add_product_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
+
 import 'go_router_refresh_stream.dart';
 
 /// Noms centralisés des routes principales de l'application.
@@ -207,17 +208,12 @@ class AppRouter {
         ),
       ),
 
-      // ── Participants & invitations ──────────────────────────
       GoRoute(
         path: '/list/:id/participants',
         name: AppRouteName.participantsManage,
         builder: (context, state) {
           final listId = state.pathParameters['id'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Gestion des participants pour la liste $listId — GP-32 / GP-33 / GP-34'),
-            ),
-          );
+          return ParticipantsManageScreen(listId: listId);
         },
       ),
       GoRoute(

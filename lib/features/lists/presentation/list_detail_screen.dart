@@ -210,6 +210,50 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     }
   }
 
+  Future<void> _leaveList() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitter la liste'),
+        content: const Text('Êtes-vous sûr de vouloir quitter cette liste ? Vous ne pourrez plus y accéder sans une nouvelle invitation.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Quitter'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      try {
+        await Supabase.instance.client
+            .from('participations')
+            .delete()
+            .eq('liste_id', widget.listId)
+            .eq('utilisateur_id', user.id);
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous avez quitté la liste.')),
+        );
+        context.go('/home');
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -233,7 +277,15 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       appBar: AppBar(
         title: Text(_listData?['titre'] as String? ?? 'Détail de la liste'),
         actions: [
-          if (_isOwner)
+          if (_isOwner) ...[
+            IconButton(
+              icon: const Icon(Icons.people_alt_outlined),
+              tooltip: 'Gérer les participants',
+              onPressed: () => context.pushNamed(
+                AppRouteName.participantsManage,
+                pathParameters: {'id': widget.listId},
+              ),
+            ),
             IconButton(
               icon: Icon(_isEditing ? Icons.close : Icons.edit),
               onPressed: _isSaving
@@ -244,6 +296,13 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                       });
                     },
             ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+              tooltip: 'Quitter la liste',
+              onPressed: _leaveList,
+            ),
+          ],
         ],
       ),
       floatingActionButton: _isOwner && !_isEditing
