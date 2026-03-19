@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/router/app_router.dart';
+import '../profile/domain/profile_notifier.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -148,6 +151,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onPressed: () => context.pushNamed(AppRouteName.listCreate),
               tooltip: 'Créer une liste',
             ),
+          ),
+          Consumer(
+            builder: (context, ref, child) {
+              final profileState = ref.watch(profileNotifierProvider);
+              return GestureDetector(
+                onTap: () => context.pushNamed(AppRouteName.profile),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: profileState.avatarUrl != null && profileState.avatarUrl!.isNotEmpty
+                        ? CachedNetworkImageProvider(profileState.avatarUrl!)
+                        : null,
+                    child: profileState.avatarUrl == null || profileState.avatarUrl!.isEmpty
+                        ? const Icon(Icons.person_rounded, color: Colors.grey, size: 20)
+                        : null,
+                  ),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.grey),
