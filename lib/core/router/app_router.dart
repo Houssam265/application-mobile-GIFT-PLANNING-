@@ -9,6 +9,7 @@ import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
+import '../../features/lists/presentation/join_preview_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -234,11 +235,7 @@ class AppRouter {
         name: AppRouteName.join,
         builder: (context, state) {
           final code = state.pathParameters['code'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Aperçu liste — code: $code — GP-16 / GP-32'),
-            ),
-          );
+          return JoinPreviewScreen(code: code);
         },
       ),
 
@@ -302,8 +299,9 @@ class AppRouter {
         }
 
         // Pour toute autre route privée, on redirige vers le login en retenant la route d'origine
-        final from = uri.toString();
-        if (from == '/login') return null; // Sécurité supplémentaire
+        final rawFrom = uri.toString();
+        if (rawFrom == '/login') return null; // Sécurité supplémentaire
+        final from = Uri.encodeComponent(rawFrom);
         return '/login?redirect=$from';
       }
 
@@ -318,6 +316,12 @@ class AppRouter {
 
       // S'il est connecté mais qu'il tape l'URL de login/register/forgot-password, on l'envoie sur home
       if (isPublicAuthRoute) {
+        final redirectTarget = uri.queryParameters['redirect'];
+        if (redirectTarget != null &&
+            redirectTarget.isNotEmpty &&
+            !redirectTarget.startsWith('/login')) {
+          return Uri.decodeComponent(redirectTarget);
+        }
         if (role == 'admin') return '/admin';
         return '/home';
       }
