@@ -71,6 +71,10 @@ class AppRouter {
     // Rafraîchir l'arbre de routage automatiquement à chaque changement d'état d'auth (login / logout)
     refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
     routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const SizedBox.shrink(),
+      ),
       // ── Auth ────────────────────────────────────────────────
       GoRoute(
         path: '/login',
@@ -282,6 +286,18 @@ class AppRouter {
       final uri = state.uri;
       final location = uri.path;
 
+      // Certains navigateurs ajoutent automatiquement des query params techniques
+      // (ex: ?i=1). On les nettoie pour stabiliser les deep links et redirects.
+      if (uri.queryParameters.containsKey('i')) {
+        final cleanedQuery = Map<String, String>.from(uri.queryParameters)
+          ..remove('i');
+        final cleanedUri = Uri(
+          path: uri.path,
+          queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery,
+        );
+        return cleanedUri.toString();
+      }
+
       // Définir quelles routes sont publiques, ou liées au processus de connexion classique
       final isPublicAuthRoute =
           location == '/login' || location == '/register' || location == '/forgot-password';
@@ -308,6 +324,11 @@ class AppRouter {
       // ── CAS 2 : Utilisateur CONNECTÉ ──
       final role = (user.userMetadata?['role'] as String?) ?? 'user';
 
+      if (location == '/') {
+        if (role == 'admin') return '/admin';
+        return '/home';
+      }
+
       // S'il est connecté ET qu'il arrive sur /reset-password (suite au clic sur le mail de Supabase)
       // On le laisse accéder à la page pour modifier son mot de passe, on ne le renvoie pas sur /home !
       if (isResetPasswordRoute) {
@@ -320,7 +341,17 @@ class AppRouter {
         if (redirectTarget != null &&
             redirectTarget.isNotEmpty &&
             !redirectTarget.startsWith('/login')) {
-          return Uri.decodeComponent(redirectTarget);
+          final decoded = Uri.decodeComponent(redirectTarget);
+          final decodedUri = Uri.tryParse(decoded);
+          if (decodedUri != null && decodedUri.queryParameters.containsKey('i')) {
+            final cleanedQuery = Map<String, String>.from(decodedUri.queryParameters)
+              ..remove('i');
+            return Uri(
+              path: decodedUri.path,
+              queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery,
+            ).toString();
+          }
+          return decoded;
         }
         if (role == 'admin') return '/admin';
         return '/home';
