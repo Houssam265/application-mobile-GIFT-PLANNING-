@@ -286,6 +286,20 @@ class AppRouter {
       final uri = state.uri;
       final location = uri.path;
 
+      // Normalisation des deep links custom scheme:
+      // giftplan://join/ABC123 -> /join/ABC123
+      if (uri.scheme == 'giftplan') {
+        final host = uri.host;
+        final segments = uri.pathSegments;
+        if (host == 'join') {
+          final code = segments.isNotEmpty ? segments.first : '';
+          if (code.isNotEmpty) {
+            return '/join/$code';
+          }
+          return '/join';
+        }
+      }
+
       // Certains navigateurs ajoutent automatiquement des query params techniques
       // (ex: ?i=1). On les nettoie pour stabiliser les deep links et redirects.
       if (uri.queryParameters.containsKey('i')) {
