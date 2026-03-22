@@ -9,12 +9,14 @@ import '../../features/auth/presentation/reset_password_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
+import '../../features/lists/presentation/join_preview_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
+import '../../features/notifications/presentation/notifications_center_screen.dart';
 
 import 'go_router_refresh_stream.dart';
 
@@ -70,6 +72,10 @@ class AppRouter {
     // Rafraîchir l'arbre de routage automatiquement à chaque changement d'état d'auth (login / logout)
     refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
     routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const SizedBox.shrink(),
+      ),
       // ── Auth ────────────────────────────────────────────────
       GoRoute(
         path: '/login',
@@ -101,9 +107,7 @@ class AppRouter {
       GoRoute(
         path: '/dashboard/lists',
         name: AppRouteName.listsDashboard,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Mes listes / Listes rejointes / Archivées — GP-17')),
-        ),
+        builder: (context, state) => const HomeScreen(),
       ),
 
       // ── Profil utilisateur ─────────────────────────────────
@@ -117,9 +121,7 @@ class AppRouter {
       GoRoute(
         path: '/notifications',
         name: AppRouteName.notificationsCenter,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Centre de notifications — GP-09 / GP-10 / GP-19')),
-        ),
+        builder: (context, state) => const NotificationsCenterScreen(),
       ),
 
       // ── Listes de souhaits ─────────────────────────────────
@@ -234,11 +236,7 @@ class AppRouter {
         name: AppRouteName.join,
         builder: (context, state) {
           final code = state.pathParameters['code'] ?? '';
-          return Scaffold(
-            body: Center(
-              child: Text('Aperçu liste — code: $code — GP-16 / GP-32'),
-            ),
-          );
+          return JoinPreviewScreen(code: code);
         },
       ),
 
@@ -285,6 +283,32 @@ class AppRouter {
       final uri = state.uri;
       final location = uri.path;
 
+      // Normalisation des deep links custom scheme:
+      // giftplan://join/ABC123 -> /join/ABC123
+      if (uri.scheme == 'giftplan') {
+        final host = uri.host;
+        final segments = uri.pathSegments;
+        if (host == 'join') {
+          final code = segments.isNotEmpty ? segments.first : '';
+          if (code.isNotEmpty) {
+            return '/join/$code';
+          }
+          return '/join';
+        }
+      }
+
+      // Certains navigateurs ajoutent automatiquement des query params techniques
+      // (ex: ?i=1). On les nettoie pour stabiliser les deep links et redirects.
+      if (uri.queryParameters.containsKey('i')) {
+        final cleanedQuery = Map<String, String>.from(uri.queryParameters)
+          ..remove('i');
+        final cleanedUri = Uri(
+          path: uri.path,
+          queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery,
+        );
+        return cleanedUri.toString();
+      }
+
       // Définir quelles routes sont publiques, ou liées au processus de connexion classique
       final isPublicAuthRoute =
           location == '/login' || location == '/register' || location == '/forgot-password';
@@ -302,13 +326,19 @@ class AppRouter {
         }
 
         // Pour toute autre route privée, on redirige vers le login en retenant la route d'origine
-        final from = uri.toString();
-        if (from == '/login') return null; // Sécurité supplémentaire
+        final rawFrom = uri.toString();
+        if (rawFrom == '/login') return null; // Sécurité supplémentaire
+        final from = Uri.encodeComponent(rawFrom);
         return '/login?redirect=$from';
       }
 
       // ── CAS 2 : Utilisateur CONNECTÉ ──
       final role = (user.userMetadata?['role'] as String?) ?? 'user';
+
+      if (location == '/') {
+        if (role == 'admin') return '/admin';
+        return '/home';
+      }
 
       // S'il est connecté ET qu'il arrive sur /reset-password (suite au clic sur le mail de Supabase)
       // On le laisse accéder à la page pour modifier son mot de passe, on ne le renvoie pas sur /home !
@@ -318,12 +348,28 @@ class AppRouter {
 
       // S'il est connecté mais qu'il tape l'URL de login/register/forgot-password, on l'envoie sur home
       if (isPublicAuthRoute) {
+        final redirectTarget = uri.queryParameters['redirect'];
+        if (redirectTarget != null &&
+            redirectTarget.isNotEmpty &&
+            !redirectTarget.startsWith('/login')) {
+          final decoded = Uri.decodeComponent(redirectTarget);
+          final decodedUri = Uri.tryParse(decoded);
+          if (decodedUri != null && decodedUri.queryParameters.containsKey('i')) {
+            final cleanedQuery = Map<String, String>.from(decodedUri.queryParameters)
+              ..remove('i');
+            return Uri(
+              path: decodedUri.path,
+              queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery,
+            ).toString();
+          }
+          return decoded;
+        }
         if (role == 'admin') return '/admin';
         return '/home';
       }
 
-      // Redirection spécifique pour les admins qui tentent d'aller sur la home standard
-      if (role == 'admin' && location == '/home') {
+      // Redirection spécifique pour les admins qui tentent d'aller sur le tableau de bord utilisateur
+      if (role == 'admin' && (location == '/home' || location == '/dashboard/lists')) {
         return '/admin';
       }
 

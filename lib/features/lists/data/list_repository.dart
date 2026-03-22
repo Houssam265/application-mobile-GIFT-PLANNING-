@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/app_links.dart';
 import '../../../core/services/storage_service.dart';
 
 enum ListVisibility { public, private, anonymous }
@@ -68,7 +69,6 @@ class ListRepository {
 
     // 2) Génération d'un code/slug unique
     final codePartage = _generateCodePartage();
-    final slug = _generateSlug();
 
     final dateEvenementIso = dateEvenement.toIso8601String().split('T').first;
 
@@ -78,7 +78,7 @@ class ListRepository {
       'nom_evenement': nomEvenement,
       'date_evenement': dateEvenementIso,
       'photo_couverture_url': coverUrl,
-      'lien_partage': 'giftplan.app/liste/$slug',
+      'lien_partage': AppLinks.joinUrl(codePartage),
       'code_partage': codePartage,
       'visibilite_contributions': visibility.dbValue,
       'proprietaire_id': user.id,
@@ -98,6 +98,35 @@ class ListRepository {
     final data = await _client.from('listes').select().eq('id', id).single();
 
     return data as Map<String, dynamic>;
+  }
+
+  /// Récupère les données minimales pour l'aperçu public via `code_partage`.
+  ///
+  /// Retourne: id, titre, nom_evenement, date_evenement, photo_couverture_url,
+  /// code_partage, products_count
+  Future<Map<String, dynamic>> getJoinPreviewByCode(String code) async {
+    final listData = await _client
+        .from('listes')
+        .select(
+          'id, titre, nom_evenement, date_evenement, photo_couverture_url, code_partage',
+        )
+        .eq('code_partage', code)
+        .maybeSingle();
+
+    if (listData == null) {
+      throw Exception('Aucune liste trouvée pour ce lien.');
+    }
+
+    final listId = listData['id'] as String;
+    final products = await _client
+        .from('produits')
+        .select('id')
+        .eq('liste_id', listId);
+
+    return {
+      ...listData,
+      'products_count': (products as List).length,
+    };
   }
 
   /// Met à jour une liste existante.
@@ -235,11 +264,5 @@ class ListRepository {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rand = Random.secure();
     return List.generate(8, (_) => chars[rand.nextInt(chars.length)]).join();
-  }
-
-  String _generateSlug() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final rand = Random.secure();
-    return List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
   }
 }

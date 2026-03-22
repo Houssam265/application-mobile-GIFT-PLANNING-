@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Ouvrir GiftPlan</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f9;
+      color: #1e3a5f;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      width: min(92vw, 420px);
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08);
+      text-align: center;
+    }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    p { margin: 0 0 16px; color: #5f6f86; }
+    .code {
+      margin: 0 auto 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eaf3f7;
+      width: fit-content;
+      font-weight: 700;
+      color: #2e86ab;
+    }
+    button, a {
+      display: block;
+      width: 100%;
+      text-decoration: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .primary { background: #2e86ab; color: #fff; }
+    .secondary { background: #eef2f7; color: #1e3a5f; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Invitation GiftPlan</h1>
+    <p>Ouverture de l'application...</p>
+    <div id="code" class="code">Code: -</div>
+    <button class="primary" id="openBtn">Ouvrir l'application</button>
+    <a class="secondary" id="storeBtn" href="https://play.google.com/store" target="_blank" rel="noopener">Installer l'application</a>
+  </div>
+
+  <script>
+    (function () {
+      var path = window.location.pathname || "";
+      var parts = path.split("/").filter(Boolean);
+      var code = parts.length >= 2 && parts[0] === "join" ? parts[1] : "";
+
+      // Nettoie les éventuels paramètres parasites injectés par certains navigateurs.
+      code = (code || "").split("?")[0].trim();
+      document.getElementById("code").textContent = "Code: " + (code || "-");
+
+      var androidPackage = "com.example.giftplan";
+      var customSchemeUrl = "giftplan://join/" + encodeURIComponent(code);
+      var intentUrl = "intent://join/" + encodeURIComponent(code) +
+        "#Intent;scheme=giftplan;package=" + androidPackage + ";end";
+
+      function openApp() {
+        var ua = navigator.userAgent || "";
+        var isAndroid = /Android/i.test(ua);
+        if (isAndroid) {
+          window.location.href = intentUrl;
+        } else {
+          window.location.href = customSchemeUrl;
+        }
+      }
+
+      document.getElementById("openBtn").addEventListener("click", openApp);
+
+      // Tentative auto à l'arrivée sur la page.
+      setTimeout(openApp, 120);
+    })();
+  </script>
+</body>
+</html>

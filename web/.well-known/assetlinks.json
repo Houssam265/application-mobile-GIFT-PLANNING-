@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.giftplan",
+      "sha256_cert_fingerprints": [
+        "02:B7:EA:FE:4D:C2:96:3C:E7:BB:0E:65:80:0A:E9:9F:0A:14:DB:4D:62:79:18:1E:62:5C:E5:AD:A8:B4:82:61",
+        "14:07:E2:5F:47:59:30:3F:F6:68:90:6B:BA:EA:10:C3:7D:B3:B1:89:18:AB:3A:D9:33:73:4A:80:CA:99:8D:81"
+      ]
+    }
+  }
+]

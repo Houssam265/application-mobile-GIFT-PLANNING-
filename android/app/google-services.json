@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787978349425",
+    "project_id": "giftplanning-872e9",
+    "storage_bucket": "giftplanning-872e9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787978349425:android:44a759cfcfc4d9b1ea64d0",
+        "android_client_info": {
+          "package_name": "com.example.giftplan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc2PyK3V80WhF26taEDzrtUuJ6K9QFEac"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
