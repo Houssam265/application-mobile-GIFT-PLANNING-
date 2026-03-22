@@ -106,9 +106,7 @@ class AppRouter {
       GoRoute(
         path: '/dashboard/lists',
         name: AppRouteName.listsDashboard,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Mes listes / Listes rejointes / Archivées — GP-17')),
-        ),
+        builder: (context, state) => const HomeScreen(),
       ),
 
       // ── Profil utilisateur ─────────────────────────────────
@@ -371,8 +369,8 @@ class AppRouter {
         return '/home';
       }
 
-      // Redirection spécifique pour les admins qui tentent d'aller sur la home standard
-      if (role == 'admin' && location == '/home') {
+      // Redirection spécifique pour les admins qui tentent d'aller sur le tableau de bord utilisateur
+      if (role == 'admin' && (location == '/home' || location == '/dashboard/lists')) {
         return '/admin';
       }
 
