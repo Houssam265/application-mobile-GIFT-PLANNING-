@@ -47,6 +47,7 @@ dev_dependencies:
   # ── Riverpod Code Generation ──────────────────────
   riverpod_generator: ^2.3.0
   build_runner: ^2.4.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -54,3 +55,10 @@ flutter:
   assets:
     - assets/images/logo.png
     - assets/images/logo_text.png
+    - assets/images/giftplan_app_icon.png
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/giftplan_app_icon.png"
+  min_sdk_android: 21
