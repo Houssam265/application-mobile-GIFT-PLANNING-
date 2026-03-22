@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -6,6 +8,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/notifications/domain/notifications_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,16 +73,65 @@ void main() async {
   runApp(const ProviderScope(child: App()));
 }
 
-class App extends StatelessWidget {
+/// Clé globale pour les SnackBars (toasts GP-19) au-dessus des routes.
+final GlobalKey<ScaffoldMessengerState> giftplanScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+class App extends ConsumerStatefulWidget {
   const App({super.key});
 
   @override
+  ConsumerState<App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<App> {
+  StreamSubscription? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn) {
+        ref.read(notificationsNotifierProvider.notifier).bind();
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        ref.read(notificationsNotifierProvider.notifier).unbind();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Supabase.instance.client.auth.currentUser != null) {
+        ref.read(notificationsNotifierProvider.notifier).bind();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ref.listen<NotificationsUiState>(notificationsNotifierProvider, (previous, next) {
+      final msg = next.pendingToast;
+      if (msg != null && msg.isNotEmpty) {
+        giftplanScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        ref.read(notificationsNotifierProvider.notifier).clearPendingToast();
+      }
+    });
+
     return MaterialApp.router(
       title: 'GiftPlan',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
+      scaffoldMessengerKey: giftplanScaffoldMessengerKey,
     );
   }
 }

@@ -16,6 +16,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
+import '../../features/notifications/presentation/notifications_center_screen.dart';
 
 import 'go_router_refresh_stream.dart';
 
@@ -120,9 +121,7 @@ class AppRouter {
       GoRoute(
         path: '/notifications',
         name: AppRouteName.notificationsCenter,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Centre de notifications — GP-09 / GP-10 / GP-19')),
-        ),
+        builder: (context, state) => const NotificationsCenterScreen(),
       ),
 
       // ── Listes de souhaits ─────────────────────────────────

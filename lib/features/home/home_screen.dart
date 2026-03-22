@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,16 +8,17 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/router/app_router.dart';
 import '../lists/presentation/join_list_entry_sheet.dart';
+import '../notifications/domain/notifications_notifier.dart';
 import '../profile/domain/profile_notifier.dart';
 import 'widgets/dashboard_list_card.dart';
 
 /// GP-17 — Tableau de bord personnel : onglets Mes listes / Listes rejointes / Archivées,
 /// recherche plein texte sur titre, événement et description, accès rapide aux notifications non lues.
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
 bool _listMatchesSearch(Map<String, dynamic> list, String query) {
@@ -29,7 +32,7 @@ bool _listMatchesSearch(Map<String, dynamic> list, String query) {
   return parts.every((p) => p.isEmpty || haystack.contains(p));
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -38,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _archivedLists = [];
   bool _loading = true;
   String _searchQuery = '';
-  int _unreadNotifications = 0;
 
   @override
   void initState() {
@@ -57,30 +59,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _fetchUnreadNotifications(String userId) async {
-    try {
-      final rows = await Supabase.instance.client
-          .from('notifications')
-          .select('id')
-          .eq('utilisateur_id', userId)
-          .eq('est_lue', false);
-      if (mounted) {
-        setState(() {
-          _unreadNotifications = (rows as List).length;
-        });
-      }
-    } catch (e) {
-      debugPrint('Erreur compteur notifications: $e');
-    }
-  }
-
   Future<void> _fetchDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     setState(() => _loading = true);
 
-    await _fetchUnreadNotifications(user.id);
+    unawaited(ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount());
 
     try {
       final myListsData = await Supabase.instance.client
@@ -195,13 +180,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _openNotifications() async {
     await context.pushNamed(AppRouteName.notificationsCenter);
     if (mounted) {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) await _fetchUnreadNotifications(user.id);
+      await ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final unreadNotifications = ref.watch(
+      notificationsNotifierProvider.select((s) => s.unreadCount),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
       appBar: AppBar(
@@ -217,9 +205,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             tooltip: 'Notifications',
             onPressed: _openNotifications,
             icon: Badge(
-              isLabelVisible: _unreadNotifications > 0,
+              isLabelVisible: unreadNotifications > 0,
               label: Text(
-                _unreadNotifications > 99 ? '99+' : '$_unreadNotifications',
+                unreadNotifications > 99 ? '99+' : '$unreadNotifications',
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
               ),
               backgroundColor: const Color(0xFFDC2626),
