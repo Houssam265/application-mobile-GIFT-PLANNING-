@@ -479,7 +479,11 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
               const SizedBox(height: 16),
               _buildFundingCard(theme),
               const SizedBox(height: 16),
-              _buildProductsCard(theme),
+              _buildProductsCard(theme, isArchived),
+              if (_isOwner) ...[
+                const SizedBox(height: 12),
+                _buildOwnerSuggestionsButton(),
+              ],
               if (_isOwner) ...[
                 const SizedBox(height: 24),
                 if (_isSaving)
@@ -698,7 +702,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     );
   }
 
-  Widget _buildProductsCard(ThemeData theme) {
+  Widget _buildProductsCard(ThemeData theme, bool isArchived) {
     final productsStream = Supabase.instance.client
         .from('produits')
         .stream(primaryKey: ['id'])
@@ -714,9 +718,14 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Produits (${products.length})',
-                style: theme.textTheme.titleMedium,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Produits (${products.length})',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ],
               ),
               if (!snapshot.hasData)
                 const Padding(
@@ -933,7 +942,48 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                     );
                   },
                 ),
+              if (!_isOwner && !isArchived) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: AppButton(
+                    label: 'Suggérer un produit',
+                    onPressed: () => context.pushNamed(
+                      AppRouteName.suggestionAdd,
+                      pathParameters: {'id': widget.listId},
+                    ),
+                    icon: Icons.lightbulb_outline,
+                    fullWidth: false,
+                  ),
+                ),
+              ],
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOwnerSuggestionsButton() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('suggestions')
+          .stream(primaryKey: ['id'])
+          .eq('liste_id', widget.listId),
+      builder: (context, suggestionsSnapshot) {
+        final pendingCount = (suggestionsSnapshot.data ?? [])
+            .where((s) => s['statut'] == 'EN_ATTENTE')
+            .length;
+        return Align(
+          alignment: Alignment.centerRight,
+          child: AppButton(
+            label: 'Voir les suggestions ($pendingCount)',
+            onPressed: () => context.pushNamed(
+              AppRouteName.suggestionsManage,
+              pathParameters: {'id': widget.listId},
+            ),
+            variant: AppButtonVariant.secondary,
+            fullWidth: false,
           ),
         );
       },
