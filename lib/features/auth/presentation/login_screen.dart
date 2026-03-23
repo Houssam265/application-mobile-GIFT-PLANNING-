@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../domain/auth_notifier.dart';
 import '../domain/auth_state.dart';
 
@@ -90,7 +91,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (redirectTarget != null && redirectTarget.isNotEmpty) {
           context.go(Uri.decodeComponent(redirectTarget));
         } else {
-          context.go('/home');
+          final role = Supabase.instance.client.auth.currentUser?.userMetadata?['role'] as String?;
+          if (role == 'admin') {
+            context.go('/admin');
+          } else {
+            context.go('/home');
+          }
         }
       }
       if (next.status == AuthStatus.error) {

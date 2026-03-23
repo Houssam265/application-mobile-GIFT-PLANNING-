@@ -45,6 +45,14 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           final meta = user.userMetadata ?? {};
           final dbName = dbUser['nom'] as String?;
           final dbAvatar = dbUser['photo_profil_url'] as String?;
+          final dbIsAdmin = dbUser['est_administrateur'] as bool? ?? false;
+
+          final expectedRole = dbIsAdmin ? 'admin' : 'user';
+          if (meta['role'] != expectedRole) {
+            Supabase.instance.client.auth.updateUser(
+              UserAttributes(data: {'role': expectedRole}),
+            );
+          }
 
           state = state.copyWith(
             displayName: (dbName != null && dbName.isNotEmpty) 
@@ -53,12 +61,14 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
             avatarUrl: (dbAvatar != null && dbAvatar.isNotEmpty) 
                 ? dbAvatar 
                 : meta['avatar_url'] as String?,
+            isAdmin: dbIsAdmin,
           );
         } else {
           final meta = user.userMetadata ?? {};
           state = state.copyWith(
             displayName: meta['display_name'] as String? ?? meta['full_name'] as String?,
             avatarUrl: meta['avatar_url'] as String?,
+            isAdmin: false,
           );
         }
       } catch (e) {

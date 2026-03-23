@@ -5,9 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../domain/profile_notifier.dart';
 import '../domain/profile_state.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/router/app_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -160,6 +163,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   // Display Name Section
                   _buildEditableNameField(profileState),
+
+                  if (profileState.isAdmin) ...[
+                    const SizedBox(height: 30),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () => context.pushNamed(AppRouteName.adminDashboard),
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Text('Aller au tableau de bord Admin', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 60),
                   

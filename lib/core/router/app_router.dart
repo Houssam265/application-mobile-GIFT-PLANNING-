@@ -13,6 +13,9 @@ import '../../features/lists/presentation/join_preview_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_users_screen.dart';
+import '../../features/admin/presentation/admin_lists_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
@@ -244,23 +247,17 @@ class AppRouter {
       GoRoute(
         path: '/admin',
         name: AppRouteName.adminDashboard,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin Dashboard — GP-37 / GP-38 / GP-39')),
-        ),
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/users',
         name: AppRouteName.adminUsers,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin — Gestion utilisateurs — GP-37')),
-        ),
+        builder: (context, state) => const AdminUsersScreen(),
       ),
       GoRoute(
         path: '/admin/lists',
         name: AppRouteName.adminLists,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin — Gestion listes — GP-38')),
-        ),
+        builder: (context, state) => const AdminListsScreen(),
       ),
       GoRoute(
         path: '/admin/stats',
@@ -368,9 +365,16 @@ class AppRouter {
         return '/home';
       }
 
-      // Redirection spécifique pour les admins qui tentent d'aller sur le tableau de bord utilisateur
-      if (role == 'admin' && (location == '/home' || location == '/dashboard/lists')) {
-        return '/admin';
+      // Redirection stricte pour les admins : uniquement les routes admin ou profil
+      if (role == 'admin') {
+        if (!location.startsWith('/admin') &&
+            location != '/profile' &&
+            location != '/login' &&
+            location != '/register' &&
+            location != '/forgot-password' &&
+            !location.startsWith('/reset-password')) {
+          return '/admin';
+        }
       }
 
       return null;
