@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_links.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/services/storage_service.dart';
 
 enum ListVisibility { public, private, anonymous }
@@ -276,12 +279,47 @@ class ListRepository {
       throw Exception('Utilisateur non connecté.');
     }
 
-    final res = await _client.functions.invoke(
-      'participant-notifications',
-      body: {'action': 'join_request', 'listId': id},
+    // Force refresh de la session
+    await Supabase.instance.client.auth.refreshSession();
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken ?? '';
+
+    if (token.isEmpty) {
+      throw Exception('Session expirée. Merci de vous reconnecter.');
+    }
+
+    print('=== DEBUG JOIN LIST ===');
+    print('token length: ${token.length}');
+    print('token parts: ${token.split('.').length}');
+    print('token valid format: ${token.split('.').length == 3}');
+    print('listId: $id');
+    print('user id: ${user.id}');
+
+    if (token.split('.').length != 3) {
+      await Supabase.instance.client.auth.signOut();
+      throw Exception('Token invalide. Merci de vous reconnecter.');
+    }
+
+    final uri = Uri.parse('https://lvahlaishpyakjygmceo.supabase.co/functions/v1/participant-notifications');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'apikey': SupabaseConstants.supabaseAnonKey,
+      },
+      body: jsonEncode({
+        'action': 'join_request',
+        'listId': id,
+      }),
     );
 
-    final data = res.data;
+    print('=== HTTP RESPONSE ===');
+    print('status: ${response.statusCode}');
+    print('body: ${response.body}');
+
+    final data = jsonDecode(response.body);
     if (data is Map && data['ok'] == true) {
       return (data['status']?.toString() ?? 'PENDING');
     }

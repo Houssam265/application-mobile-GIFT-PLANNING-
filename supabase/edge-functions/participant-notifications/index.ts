@@ -64,24 +64,26 @@ Deno.serve(async (req) => {
     }
 
     const url = getRequiredEnv('SUPABASE_URL')
-    const anonKey = getRequiredEnv('SUPABASE_ANON_KEY')
     const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY')
     const oneSignalAppId = getRequiredEnv('ONESIGNAL_APP_ID')
     const oneSignalRestApiKey = getRequiredEnv('ONESIGNAL_REST_API_KEY')
 
     const authHeader = req.headers.get('Authorization') ?? ''
-    const authed = createClient(url, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const {
-      data: { user },
-      error: authError,
-    } = await authed.auth.getUser()
-    if (authError || !user) {
-      return jsonResponse({ error: 'Unauthorized' }, 401)
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length).trim()
+      : ''
+    if (!token) {
+      return jsonResponse({ error: 'Missing bearer token' }, 401)
     }
 
     const admin = createClient(url, serviceRoleKey)
+    const {
+      data: { user },
+      error: authError,
+    } = await admin.auth.getUser(token)
+    if (authError || !user) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
 
     const body = await req.json().catch(() => ({} as any))
     const action = body?.action as Action | undefined

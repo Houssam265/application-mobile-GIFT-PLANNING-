@@ -23,6 +23,8 @@ import '../../features/notifications/presentation/notifications_center_screen.da
 
 import 'go_router_refresh_stream.dart';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 /// Noms centralisés des routes principales de l'application.
 class AppRouteName {
   static const login = 'login';
@@ -71,6 +73,7 @@ class AppRouteName {
 
 class AppRouter {
   static final GoRouter router = GoRouter(
+    navigatorKey: appNavigatorKey,
     initialLocation: '/login', // Remis sur /login par défaut
     // Rafraîchir l'arbre de routage automatiquement à chaque changement d'état d'auth (login / logout)
     refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),

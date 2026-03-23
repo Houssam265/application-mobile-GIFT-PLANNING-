@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/widgets/loading_widget.dart';
 
 class ParticipantsManageScreen extends StatefulWidget {
@@ -16,6 +17,20 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _pendingMembers = [];
   List<Map<String, dynamic>> _activeMembers = [];
+
+  Future<String> _getValidAccessToken() async {
+    var session = Supabase.instance.client.auth.currentSession;
+    var token = session?.accessToken ?? '';
+    if (token.isEmpty) {
+      final refresh = await Supabase.instance.client.auth.refreshSession();
+      session = refresh.session;
+      token = session?.accessToken ?? '';
+    }
+    if (token.isEmpty) {
+      throw Exception('Session expirée. Merci de vous reconnecter.');
+    }
+    return token;
+  }
 
   @override
   void initState() {
@@ -54,12 +69,17 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _acceptMember(String participationId) async {
     try {
+      final token = await _getValidAccessToken();
       await Supabase.instance.client.functions.invoke(
         'participant-notifications',
         body: {
           'action': 'join_accepted',
           'listId': widget.listId,
           'participationId': participationId,
+        },
+        headers: {
+          'apikey': SupabaseConstants.supabaseAnonKey,
+          'Authorization': 'Bearer $token',
         },
       );
       
@@ -76,12 +96,17 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _refuseMember(String participationId) async {
     try {
+      final token = await _getValidAccessToken();
       await Supabase.instance.client.functions.invoke(
         'participant-notifications',
         body: {
           'action': 'join_refused',
           'listId': widget.listId,
           'participationId': participationId,
+        },
+        headers: {
+          'apikey': SupabaseConstants.supabaseAnonKey,
+          'Authorization': 'Bearer $token',
         },
       );
       

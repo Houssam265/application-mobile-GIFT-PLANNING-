@@ -72,6 +72,22 @@ void main() async {
     }
   });
 
+  // Navigation au clic sur notification push OneSignal.
+  OneSignal.Notifications.addClickListener((event) {
+    final data = event.notification.additionalData;
+    if (data != null) {
+      final listId = data['listId'] as String?;
+      final eventType = data['event'] as String?;
+
+      if (listId != null && eventType == 'join_request') {
+        AppRouter.router.pushNamed(
+          AppRouteName.participantsManage,
+          pathParameters: {'id': listId},
+        );
+      }
+    }
+  });
+
   runApp(const ProviderScope(child: App()));
 }
 
