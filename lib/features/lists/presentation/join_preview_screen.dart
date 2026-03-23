@@ -22,6 +22,7 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
   final _repository = ListRepository();
 
   bool _isLoading = true;
+  bool _isJoining = false;
   Map<String, dynamic>? _preview;
 
   @override
@@ -66,7 +67,7 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
     await SharePlus.instance.share(ShareParams(text: _shareUrl));
   }
 
-  void _onJoinPressed() {
+  Future<void> _onJoinPressed() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       final redirect = Uri.encodeComponent('/join/$_normalizedCode');
@@ -76,7 +77,30 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
 
     final listId = _preview?['id'] as String?;
     if (listId == null || listId.isEmpty) return;
-    context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+    
+    setState(() => _isJoining = true);
+    try {
+      await _repository.joinList(listId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous avez rejoint la liste avec succès !')),
+      );
+      context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+    } catch (e) {
+      if (!mounted) return;
+      final errorStr = e.toString();
+      if (errorStr.contains('déjà propriétaire') || errorStr.contains('déjà partie')) {
+        context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorStr.replaceAll('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isJoining = false);
+      }
+    }
   }
 
   String _formatDate(String? rawDate) {
@@ -193,8 +217,8 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
                     ),
                     const Spacer(),
                     AppButton(
-                      label: 'Rejoindre',
-                      onPressed: _onJoinPressed,
+                      label: _isJoining ? 'En cours...' : 'Rejoindre',
+                      onPressed: _isJoining ? null : _onJoinPressed,
                       variant: AppButtonVariant.primary,
                     ),
                   ],

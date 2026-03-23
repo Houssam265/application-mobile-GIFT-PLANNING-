@@ -265,4 +265,78 @@ class ListRepository {
     final rand = Random.secure();
     return List.generate(8, (_) => chars[rand.nextInt(chars.length)]).join();
   }
+
+  /// Demande à rejoindre une liste.
+  Future<void> joinList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    // Vérifier si la liste existe
+    final listData = await _client
+        .from('listes')
+        .select('proprietaire_id')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (listData == null) {
+      throw Exception('Liste introuvable.');
+    }
+
+    if (listData['proprietaire_id'] == user.id) {
+      throw Exception('Vous êtes déjà propriétaire de cette liste.');
+    }
+
+    // Vérifier s'il y a déjà une participation
+    final existing = await _client
+        .from('participations')
+        .select('id, role')
+        .eq('liste_id', id)
+        .eq('utilisateur_id', user.id)
+        .maybeSingle();
+
+    if (existing != null) {
+      if (existing['role'] == 'INVITE') {
+        throw Exception('Vous faites déjà partie de cette liste.');
+      }
+      if (existing['role'] == 'EN_ATTENTE') {
+        // Mettre à jour en INVITE puisque le lien a été partagé
+        await _client.from('participations')
+            .update({'role': 'INVITE'})
+            .eq('id', existing['id']);
+        
+        // On évite de créer une nouvelle notification
+        return;
+      }
+      return;
+    }
+
+    // Nouvelle adhésion (directement accepté)
+    await _client.from('participations').insert({
+      'liste_id': id,
+      'utilisateur_id': user.id,
+      'role': 'INVITE',
+      'date_adhesion': DateTime.now().toIso8601String(),
+    });
+
+    // Créer une notification pour le propriétaire
+    final ownerId = listData['proprietaire_id'];
+    
+    final currentUserData = await _client
+        .from('utilisateurs')
+        .select('nom')
+        .eq('id', user.id)
+        .maybeSingle();
+        
+    final userName = currentUserData?['nom'] ?? 'Un utilisateur';
+
+    await _client.from('notifications').insert({
+      'utilisateur_id': ownerId,
+      'type': 'ADHESION',
+      'message': '$userName a rejoint votre liste',
+      'est_lue': false,
+      'date_envoi': DateTime.now().toIso8601String(),
+    });
+  }
 }
