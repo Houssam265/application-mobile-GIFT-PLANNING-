@@ -11,6 +11,15 @@ import '../../features/lists/presentation/list_create_screen.dart';
 import '../../features/lists/presentation/list_detail_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
+<<<<<<< Updated upstream
+=======
+import '../../features/suggestions/presentation/suggest_product_screen.dart';
+import '../../features/suggestions/presentation/suggestions_manage_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_users_screen.dart';
+import '../../features/admin/presentation/admin_lists_screen.dart';
+>>>>>>> Stashed changes
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
@@ -43,6 +52,8 @@ class AppRouteName {
   static const productAdd = 'product-add';
   static const productEdit = 'product-edit';
   static const product = 'product';
+  static const suggestionAdd = 'suggestion-add';
+  static const suggestionsManage = 'suggestions-manage';
 
   // Contributions
   static const contribute = 'contribute';
@@ -188,6 +199,22 @@ class AppRouter {
               child: Text('Produit $productId — GP-21 / GP-22'),
             ),
           );
+        },
+      ),
+      GoRoute(
+        path: '/list/:id/suggest',
+        name: AppRouteName.suggestionAdd,
+        builder: (context, state) {
+          final listId = state.pathParameters['id'] ?? '';
+          return SuggestProductScreen(listId: listId);
+        },
+      ),
+      GoRoute(
+        path: '/list/:id/suggestions',
+        name: AppRouteName.suggestionsManage,
+        builder: (context, state) {
+          final listId = state.pathParameters['id'] ?? '';
+          return SuggestionsManageScreen(listId: listId);
         },
       ),
 
