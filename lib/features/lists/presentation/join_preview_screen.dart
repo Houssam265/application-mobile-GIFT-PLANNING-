@@ -121,7 +121,20 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Aperçu de la liste')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+          tooltip: 'Retour au tableau de bord',
+        ),
+        title: const Text('Aperçu de la liste'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
