@@ -80,12 +80,16 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
     
     setState(() => _isJoining = true);
     try {
-      await _repository.joinList(listId);
+      final status = await _repository.joinList(listId);
       if (!mounted) return;
+      if (status == 'ALREADY_MEMBER') {
+        context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vous avez rejoint la liste avec succès !')),
+        const SnackBar(content: Text('Demande envoyée au propriétaire.')),
       );
-      context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+      context.go('/home');
     } catch (e) {
       if (!mounted) return;
       final errorStr = e.toString();
@@ -117,7 +121,20 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Aperçu de la liste')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+          tooltip: 'Retour au tableau de bord',
+        ),
+        title: const Text('Aperçu de la liste'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

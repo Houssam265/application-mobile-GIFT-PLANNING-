@@ -35,6 +35,7 @@ void main() async {
         // Au login : appel OneSignal.login(userId) pour lier userId Supabase
         OneSignal.login(userId);
 
+
         // Stocker playerId dans la table profiles (utilisateurs)
         final playerId = OneSignal.User.pushSubscription.id;
         if (playerId != null && playerId.isNotEmpty) {
@@ -54,6 +55,7 @@ void main() async {
     }
   });
 
+
   // Listener si le playerId est attribué de manière asynchrone après le login
   OneSignal.User.pushSubscription.addObserver((state) async {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -66,6 +68,22 @@ void main() async {
             .eq('id', currentUserId);
       } catch (e) {
         debugPrint("Erreur maj playerId pushSubscription: $e");
+      }
+    }
+  });
+
+  // Navigation au clic sur notification push OneSignal.
+  OneSignal.Notifications.addClickListener((event) {
+    final data = event.notification.additionalData;
+    if (data != null) {
+      final listId = data['listId'] as String?;
+      final eventType = data['event'] as String?;
+
+      if (listId != null && eventType == 'join_request') {
+        AppRouter.router.pushNamed(
+          AppRouteName.participantsManage,
+          pathParameters: {'id': listId},
+        );
       }
     }
   });

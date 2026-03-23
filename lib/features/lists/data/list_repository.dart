@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_links.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/services/storage_service.dart';
 
 enum ListVisibility { public, private, anonymous }
@@ -267,76 +270,59 @@ class ListRepository {
   }
 
   /// Demande à rejoindre une liste.
-  Future<void> joinList(String id) async {
+  ///
+  /// Retourne `PENDING` si une demande est créée/encore en attente,
+  /// `ALREADY_MEMBER` si l'utilisateur est déjà membre.
+  Future<String> joinList(String id) async {
     final user = _client.auth.currentUser;
     if (user == null) {
       throw Exception('Utilisateur non connecté.');
     }
 
-    // Vérifier si la liste existe
-    final listData = await _client
-        .from('listes')
-        .select('proprietaire_id')
-        .eq('id', id)
-        .maybeSingle();
+    // Force refresh de la session
+    await Supabase.instance.client.auth.refreshSession();
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken ?? '';
 
-    if (listData == null) {
-      throw Exception('Liste introuvable.');
+    if (token.isEmpty) {
+      throw Exception('Session expirée. Merci de vous reconnecter.');
     }
 
-    if (listData['proprietaire_id'] == user.id) {
-      throw Exception('Vous êtes déjà propriétaire de cette liste.');
+    print('=== DEBUG JOIN LIST ===');
+    print('token length: ${token.length}');
+    print('token parts: ${token.split('.').length}');
+    print('token valid format: ${token.split('.').length == 3}');
+    print('listId: $id');
+    print('user id: ${user.id}');
+
+    if (token.split('.').length != 3) {
+      await Supabase.instance.client.auth.signOut();
+      throw Exception('Token invalide. Merci de vous reconnecter.');
     }
 
-    // Vérifier s'il y a déjà une participation
-    final existing = await _client
-        .from('participations')
-        .select('id, role')
-        .eq('liste_id', id)
-        .eq('utilisateur_id', user.id)
-        .maybeSingle();
+    final uri = Uri.parse('https://lvahlaishpyakjygmceo.supabase.co/functions/v1/participant-notifications');
 
-    if (existing != null) {
-      if (existing['role'] == 'INVITE') {
-        throw Exception('Vous faites déjà partie de cette liste.');
-      }
-      if (existing['role'] == 'EN_ATTENTE') {
-        // Mettre à jour en INVITE puisque le lien a été partagé
-        await _client.from('participations')
-            .update({'role': 'INVITE'})
-            .eq('id', existing['id']);
-        
-        // On évite de créer une nouvelle notification
-        return;
-      }
-      return;
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'apikey': SupabaseConstants.supabaseAnonKey,
+      },
+      body: jsonEncode({
+        'action': 'join_request',
+        'listId': id,
+      }),
+    );
+
+    print('=== HTTP RESPONSE ===');
+    print('status: ${response.statusCode}');
+    print('body: ${response.body}');
+
+    final data = jsonDecode(response.body);
+    if (data is Map && data['ok'] == true) {
+      return (data['status']?.toString() ?? 'PENDING');
     }
-
-    // Nouvelle adhésion (directement accepté)
-    await _client.from('participations').insert({
-      'liste_id': id,
-      'utilisateur_id': user.id,
-      'role': 'INVITE',
-      'date_adhesion': DateTime.now().toIso8601String(),
-    });
-
-    // Créer une notification pour le propriétaire
-    final ownerId = listData['proprietaire_id'];
-    
-    final currentUserData = await _client
-        .from('utilisateurs')
-        .select('nom')
-        .eq('id', user.id)
-        .maybeSingle();
-        
-    final userName = currentUserData?['nom'] ?? 'Un utilisateur';
-
-    await _client.from('notifications').insert({
-      'utilisateur_id': ownerId,
-      'type': 'ADHESION',
-      'message': '$userName a rejoint votre liste',
-      'est_lue': false,
-      'date_envoi': DateTime.now().toIso8601String(),
-    });
+    throw Exception((data is Map ? data['error'] : null) ?? 'Erreur lors de la demande.');
   }
 }

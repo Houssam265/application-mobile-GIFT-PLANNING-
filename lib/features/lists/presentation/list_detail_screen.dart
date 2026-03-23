@@ -158,6 +158,15 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       return;
     }
 
+    // Utiliser uniquement des caractères ASCII pour éviter les erreurs d'encodage QR
+    final sanitizedUrl = url.replaceAll(RegExp(r'[^\x00-\x7F]'), '');
+    if (sanitizedUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lien invalide pour le QR code.')),
+      );
+      return;
+    }
+
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -165,11 +174,40 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            QrImageView(
-              data: url,
-              version: QrVersions.auto,
-              size: 210,
-              backgroundColor: Colors.white,
+            RepaintBoundary(
+              child: SizedBox(
+                width: 210,
+                height: 210,
+                child: QrImageView(
+                  data: sanitizedUrl,
+                  version: 4, // Version fixe (suffisant pour ~50 caractères)
+                  size: 210,
+                  backgroundColor: Colors.white,
+                  errorStateBuilder: (context, error) {
+                    return Container(
+                      width: 210,
+                      height: 210,
+                      color: Colors.grey.shade200,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade600),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'Impossible de générer le QR code',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -363,6 +401,17 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+          tooltip: 'Retour au tableau de bord',
+        ),
         title: Text(_listData?['titre'] as String? ?? 'Détail de la liste'),
         actions: [
           if (_isOwner) ...[
