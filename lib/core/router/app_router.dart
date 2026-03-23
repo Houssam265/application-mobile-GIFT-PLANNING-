@@ -13,6 +13,7 @@ import '../../features/lists/presentation/join_preview_screen.dart';
 import '../../features/products/domain/product_model.dart';
 import '../../features/products/presentation/add_product_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
@@ -244,9 +245,7 @@ class AppRouter {
       GoRoute(
         path: '/admin',
         name: AppRouteName.adminDashboard,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin Dashboard — GP-37 / GP-38 / GP-39')),
-        ),
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/users',
