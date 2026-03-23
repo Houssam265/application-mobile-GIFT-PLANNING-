@@ -51,7 +51,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
         children: [
           // Search Bar
           Padding(
-            padding: EdgeInsets.all(AppTheme.padding),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -74,6 +74,21 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
               onChanged: (value) {
                 ref.read(adminUserNotifierProvider.notifier).onSearchQueryChanged(value);
               },
+            ),
+          ),
+
+          // Filter Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                _buildFilterChip('TOUT', 'Tous (${state.totalUsers})', state.currentFilter),
+                const SizedBox(width: 8),
+                _buildFilterChip('ACTIFS', 'Actifs (${state.activeUsers})', state.currentFilter),
+                const SizedBox(width: 8),
+                _buildFilterChip('SUSPENDUS', 'Suspendus (${state.suspendedUsers})', state.currentFilter),
+              ],
             ),
           ),
 
@@ -163,6 +178,25 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildFilterChip(String value, String label, String currentFilter) {
+    final isSelected = currentFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          ref.read(adminUserNotifierProvider.notifier).onFilterChanged(value);
+        }
+      },
+      selectedColor: AppTheme.primary.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.primary : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
   }

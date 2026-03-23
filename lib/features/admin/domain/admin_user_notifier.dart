@@ -39,8 +39,23 @@ class AdminUserNotifier extends StateNotifier<AdminUserState> {
     state = state.copyWith(status: AdminUserStatus.loading);
     try {
       final q = query ?? state.searchQuery;
-      final users = await _repository.fetchUsers(q);
-      state = state.copyWith(status: AdminUserStatus.success, users: users);
+      
+      bool? isSuspended;
+      if (state.currentFilter == 'ACTIFS') isSuspended = false;
+      if (state.currentFilter == 'SUSPENDUS') isSuspended = true;
+
+      final users = await _repository.fetchUsers(q, isSuspended: isSuspended);
+      
+      // Also fetch stats to keep them fresh
+      final stats = await _repository.fetchUserStats();
+      
+      state = state.copyWith(
+        status: AdminUserStatus.success, 
+        users: users,
+        totalUsers: stats['total'] ?? 0,
+        activeUsers: stats['active'] ?? 0,
+        suspendedUsers: stats['suspended'] ?? 0,
+      );
     } catch (e) {
       state = state.copyWith(
         status: AdminUserStatus.error,
@@ -49,20 +64,18 @@ class AdminUserNotifier extends StateNotifier<AdminUserState> {
     }
   }
 
+  void onFilterChanged(String filter) {
+    state = state.copyWith(currentFilter: filter);
+    fetchUsers();
+  }
+
   Future<void> toggleUserSuspension(String userId, bool nouveauStatutSuspendu) async {
     state = state.copyWith(status: AdminUserStatus.loading);
     try {
       await _repository.updateUserStatus(userId, nouveauStatutSuspendu);
       
-      // Mettre à jour la liste locale sans tout recharger
-      final updatedUsers = state.users.map((u) {
-        if (u.id == userId) {
-          return u.copyWith(estSuspendu: nouveauStatutSuspendu);
-        }
-        return u;
-      }).toList();
-      
-      state = state.copyWith(status: AdminUserStatus.success, users: updatedUsers);
+      // Refresh both list and stats
+      await fetchUsers();
     } catch (e) {
       state = state.copyWith(
         status: AdminUserStatus.error,

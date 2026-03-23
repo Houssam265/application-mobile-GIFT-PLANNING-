@@ -47,7 +47,16 @@ class AdminListNotifier extends StateNotifier<AdminListState> {
         query: state.searchQuery,
         filterStatut: state.currentFilter,
       );
-      state = state.copyWith(status: AdminListStatus.success, lists: lists);
+      
+      final stats = await _repository.fetchListStats();
+
+      state = state.copyWith(
+        status: AdminListStatus.success, 
+        lists: lists,
+        totalLists: stats['total'] ?? 0,
+        activeLists: stats['active'] ?? 0,
+        archivedLists: stats['archived'] ?? 0,
+      );
     } catch (e) {
       state = state.copyWith(
         status: AdminListStatus.error,

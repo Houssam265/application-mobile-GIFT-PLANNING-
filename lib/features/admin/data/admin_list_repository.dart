@@ -27,6 +27,21 @@ class AdminListRepository {
         .toList();
   }
 
+  Future<Map<String, int>> fetchListStats() async {
+    final response = await _supabase.from('listes').select('statut');
+    final lists = response as List<dynamic>;
+
+    final total = lists.length;
+    final active = lists.where((l) => l['statut'] == 'ACTIVE').length;
+    final archived = total - active;
+
+    return {
+      'total': total,
+      'active': active,
+      'archived': archived,
+    };
+  }
+
   Future<void> updateListStatus(String listId, String newStatus) async {
     await _supabase.rpc('admin_update_list_status', params: {
       'target_list_id': listId,

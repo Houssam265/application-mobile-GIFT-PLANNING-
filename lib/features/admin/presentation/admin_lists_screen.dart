@@ -126,24 +126,9 @@ class _AdminListsScreenState extends ConsumerState<AdminListsScreen> {
       ),
       body: Column(
         children: [
-          // Filtres Statut
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _buildFilterChip('TOUTES', 'Toutes', state.currentFilter),
-                const SizedBox(width: 8),
-                _buildFilterChip('ACTIVE', 'Actives', state.currentFilter),
-                const SizedBox(width: 8),
-                _buildFilterChip('ARCHIVEE', 'Archivées', state.currentFilter),
-              ],
-            ),
-          ),
-
           // Search Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -166,6 +151,21 @@ class _AdminListsScreenState extends ConsumerState<AdminListsScreen> {
               onChanged: (value) {
                 ref.read(adminListNotifierProvider.notifier).onSearchQueryChanged(value);
               },
+            ),
+          ),
+
+          // Filtres Statut
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                _buildFilterChip('TOUTES', 'Toutes (${state.totalLists})', state.currentFilter),
+                const SizedBox(width: 8),
+                _buildFilterChip('ACTIVE', 'Actives (${state.activeLists})', state.currentFilter),
+                const SizedBox(width: 8),
+                _buildFilterChip('ARCHIVEE', 'Archivées (${state.archivedLists})', state.currentFilter),
+              ],
             ),
           ),
           const SizedBox(height: 8),
