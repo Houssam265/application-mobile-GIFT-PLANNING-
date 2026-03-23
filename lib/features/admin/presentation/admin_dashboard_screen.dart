@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -34,8 +35,23 @@ class AdminDashboardScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: const Center(
-        child: Text('Le tableau de bord admin sera implémenté ici.'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            elevation: 2,
+            child: ListTile(
+              leading: const Icon(Icons.people, color: Colors.indigo),
+              title: const Text('Gestion des utilisateurs', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Rechercher, suspendre ou supprimer des comptes.'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.pushNamed('admin-users');
+              },
+            ),
+          ),
+          // D'autres tuiles (Listes, Stats) viendront ici plus tard
+        ],
       ),
     );
   }
