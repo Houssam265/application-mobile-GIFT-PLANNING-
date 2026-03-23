@@ -47,6 +47,13 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           final dbAvatar = dbUser['photo_profil_url'] as String?;
           final dbIsAdmin = dbUser['est_administrateur'] as bool? ?? false;
 
+          final expectedRole = dbIsAdmin ? 'admin' : 'user';
+          if (meta['role'] != expectedRole) {
+            Supabase.instance.client.auth.updateUser(
+              UserAttributes(data: {'role': expectedRole}),
+            );
+          }
+
           state = state.copyWith(
             displayName: (dbName != null && dbName.isNotEmpty) 
                 ? dbName 

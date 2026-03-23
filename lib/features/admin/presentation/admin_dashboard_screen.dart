@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../profile/domain/profile_notifier.dart';
@@ -24,6 +25,14 @@ class AdminDashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Administration'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.grey),
+            onPressed: () => Supabase.instance.client.auth.signOut(),
+            tooltip: 'Se déconnecter',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: const Center(
         child: Text('Le tableau de bord admin sera implémenté ici.'),

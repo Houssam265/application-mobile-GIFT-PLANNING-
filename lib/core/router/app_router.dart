@@ -367,9 +367,16 @@ class AppRouter {
         return '/home';
       }
 
-      // Redirection spécifique pour les admins qui tentent d'aller sur le tableau de bord utilisateur
-      if (role == 'admin' && (location == '/home' || location == '/dashboard/lists')) {
-        return '/admin';
+      // Redirection stricte pour les admins : uniquement les routes admin ou profil
+      if (role == 'admin') {
+        if (!location.startsWith('/admin') &&
+            location != '/profile' &&
+            location != '/login' &&
+            location != '/register' &&
+            location != '/forgot-password' &&
+            !location.startsWith('/reset-password')) {
+          return '/admin';
+        }
       }
 
       return null;
