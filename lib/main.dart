@@ -1,37 +1,28 @@
-<<<<<<< Updated upstream
-=======
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
->>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/notifications/domain/notifications_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-<<<<<<< Updated upstream
-=======
+
   if (kIsWeb) {
     usePathUrlStrategy();
   }
->>>>>>> Stashed changes
 
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
-<<<<<<< Updated upstream
-  runApp(const ProviderScope(child: App()));
-}
-
-class App extends StatelessWidget {
-=======
   if (!kIsWeb) {
     await _initOneSignal();
   }
@@ -45,12 +36,10 @@ final GlobalKey<ScaffoldMessengerState> giftplanScaffoldMessengerKey =
 
 Future<void> _initOneSignal() async {
   try {
-    // Initialisation de OneSignal
     OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
     OneSignal.initialize(SupabaseConstants.oneSignalAppId);
     await OneSignal.Notifications.requestPermission(true);
 
-    // Écoute des changements d'état d'authentification pour OneSignal
     Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       final session = data.session;
@@ -79,7 +68,6 @@ Future<void> _initOneSignal() async {
       }
     });
 
-    // Listener si le playerId est attribué de manière asynchrone après le login
     OneSignal.User.pushSubscription.addObserver((state) async {
       final currentUserId = Supabase.instance.client.auth.currentUser?.id;
       final playerId = state.current.id;
@@ -95,7 +83,6 @@ Future<void> _initOneSignal() async {
       }
     });
 
-    // Navigation au clic sur notification push OneSignal.
     OneSignal.Notifications.addClickListener((event) {
       final data = event.notification.additionalData;
       if (data != null) {
@@ -118,16 +105,62 @@ Future<void> _initOneSignal() async {
 }
 
 class App extends ConsumerStatefulWidget {
->>>>>>> Stashed changes
+
+
   const App({super.key});
 
   @override
+  ConsumerState<App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<App> {
+  StreamSubscription? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn) {
+        ref.read(notificationsNotifierProvider.notifier).bind();
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        ref.read(notificationsNotifierProvider.notifier).unbind();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Supabase.instance.client.auth.currentUser != null) {
+        ref.read(notificationsNotifierProvider.notifier).bind();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ref.listen<NotificationsUiState>(notificationsNotifierProvider, (previous, next) {
+      final msg = next.pendingToast;
+      if (msg != null && msg.isNotEmpty) {
+        giftplanScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        ref.read(notificationsNotifierProvider.notifier).clearPendingToast();
+      }
+    });
+
     return MaterialApp.router(
       title: 'GiftPlan',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
+      scaffoldMessengerKey: giftplanScaffoldMessengerKey,
     );
   }
 }

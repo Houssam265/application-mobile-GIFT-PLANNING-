@@ -157,6 +157,17 @@ class _ListCreateScreenState extends State<ListCreateScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.goNamed(AppRouteName.home);
+            }
+          },
+          tooltip: 'Retour au tableau de bord',
+        ),
         title: const Text('Nouvelle liste de souhaits'),
       ),
       body: SafeArea(

@@ -1,39 +1,71 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/router/app_router.dart';
+import '../lists/presentation/join_list_entry_sheet.dart';
+import '../notifications/domain/notifications_notifier.dart';
+import '../profile/domain/profile_notifier.dart';
+import 'widgets/dashboard_list_card.dart';
 
-class HomeScreen extends StatefulWidget {
+/// GP-17 — Tableau de bord personnel : onglets Mes listes / Listes rejointes / Archivées,
+/// recherche plein texte sur titre, événement et description, accès rapide aux notifications non lues.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+bool _listMatchesSearch(Map<String, dynamic> list, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return true;
+  final parts = q.split(RegExp(r'\s+'));
+  final titre = (list['titre'] ?? '').toString().toLowerCase();
+  final nomEv = (list['nom_evenement'] ?? '').toString().toLowerCase();
+  final desc = (list['description'] ?? '').toString().toLowerCase();
+  final haystack = '$titre $nomEv $desc';
+  return parts.every((p) => p.isEmpty || haystack.contains(p));
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+
   List<Map<String, dynamic>> _myLists = [];
   List<Map<String, dynamic>> _joinedLists = [];
   List<Map<String, dynamic>> _archivedLists = [];
   bool _loading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _fetchLists();
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _fetchDashboardData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchLists() async {
+  Future<void> _fetchDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
+
+    setState(() => _loading = true);
+
+    unawaited(ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount());
 
     try {
       final myListsData = await Supabase.instance.client
@@ -71,11 +103,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ...List<Map<String, dynamic>>.from(joinedArchivedListsData),
       ];
 
-      // Sort combined archived lists by date_creation
       combinedArchived.sort((a, b) {
         final dateA = DateTime.tryParse(a['date_creation'] ?? '') ?? DateTime(2000);
         final dateB = DateTime.tryParse(b['date_creation'] ?? '') ?? DateTime(2000);
-        return dateB.compareTo(dateA); // descending
+        return dateB.compareTo(dateA);
       });
 
       if (mounted) {
@@ -94,67 +125,122 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  Widget _buildListTab(List<Map<String, dynamic>> lists) {
+  List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> source) {
+    return source.where((m) => _listMatchesSearch(m, _searchQuery)).toList();
+  }
+
+  Widget _buildListTab(List<Map<String, dynamic>> lists, {double bottomPadding = 24}) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF2E86AB)));
     }
-    if (lists.isEmpty) {
+    final filtered = _filter(lists);
+    if (filtered.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            const Text(
-              'Aucune liste trouvée.',
-              style: TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.inbox_outlined,
+                size: 64,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isNotEmpty
+                    ? 'Aucune liste ne correspond à « $_searchQuery ».'
+                    : 'Aucune liste trouvée.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return RefreshIndicator(
       color: const Color(0xFF2E86AB),
-      onRefresh: _fetchLists,
+      onRefresh: _fetchDashboardData,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        itemCount: lists.length,
+        padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPadding),
+        itemCount: filtered.length,
         itemBuilder: (context, index) {
-          return _ListCard(listData: lists[index]);
+          return DashboardListCard(listData: filtered[index]);
         },
       ),
     );
   }
 
+  Future<void> _openNotifications() async {
+    await context.pushNamed(AppRouteName.notificationsCenter);
+    if (mounted) {
+      await ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final unreadNotifications = ref.watch(
+      notificationsNotifierProvider.select((s) => s.unreadCount),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
       appBar: AppBar(
-        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F))),
+        title: const Text(
+          'Mon tableau de bord',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+        ),
         elevation: 0,
         backgroundColor: Colors.white,
         centerTitle: false,
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2E86AB).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: _openNotifications,
+            icon: Badge(
+              isLabelVisible: unreadNotifications > 0,
+              label: Text(
+                unreadNotifications > 99 ? '99+' : '$unreadNotifications',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              child: const Icon(Icons.notifications_outlined, color: Color(0xFF1E3A5F)),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.add_rounded, color: Color(0xFF2E86AB)),
-              onPressed: () => context.pushNamed(AppRouteName.listCreate),
-              tooltip: 'Créer une liste',
-            ),
+          ),
+          Consumer(
+            builder: (context, ref, child) {
+              final profileState = ref.watch(profileNotifierProvider);
+              return GestureDetector(
+                onTap: () => context.pushNamed(AppRouteName.profile),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: CircleAvatar(
+                    radius: 17,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: profileState.avatarUrl != null && profileState.avatarUrl!.isNotEmpty
+                        ? CachedNetworkImageProvider(profileState.avatarUrl!)
+                        : null,
+                    child: profileState.avatarUrl == null || profileState.avatarUrl!.isEmpty
+                        ? const Icon(Icons.person_rounded, color: Colors.grey, size: 20)
+                        : null,
+                  ),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.grey),
             onPressed: () => Supabase.instance.client.auth.signOut(),
             tooltip: 'Se déconnecter',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -162,244 +248,88 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           unselectedLabelColor: Colors.grey.shade500,
           indicatorColor: const Color(0xFF2E86AB),
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: const [
             Tab(text: 'Mes listes'),
-            Tab(text: 'Rejointes'),
+            Tab(text: 'Listes rejointes'),
             Tab(text: 'Archivées'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildListTab(_myLists),
-          _buildListTab(_joinedLists),
-          _buildListTab(_archivedLists),
+          Material(
+            color: Colors.white,
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher une liste (titre, événement, description)…',
+                  hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                  prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade600),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          tooltip: 'Effacer',
+                          icon: Icon(Icons.clear_rounded, color: Colors.grey.shade600),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xFFF4F7F9),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildListTab(_myLists, bottomPadding: 88),
+                _buildListTab(_joinedLists, bottomPadding: 88),
+                _buildListTab(_archivedLists),
+              ],
+            ),
+          ),
         ],
       ),
+      floatingActionButton: _tabController.index == 0
+          ? FloatingActionButton(
+              heroTag: 'fab_dashboard_create_list',
+              onPressed: () => context.pushNamed(AppRouteName.listCreate),
+              backgroundColor: const Color(0xFF2E86AB),
+              foregroundColor: Colors.white,
+              tooltip: 'Créer une liste',
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: const Icon(Icons.add_rounded, size: 28),
+            )
+          : _tabController.index == 1
+              ? FloatingActionButton(
+                  heroTag: 'fab_dashboard_join_list',
+                  onPressed: () => showJoinListEntrySheet(context),
+                  backgroundColor: const Color(0xFF2E86AB),
+                  foregroundColor: Colors.white,
+                  tooltip: 'Rejoindre une liste (QR ou code)',
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.group_add_rounded, size: 28),
+                )
+              : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
-  }
-}
-
-class _ListCard extends StatelessWidget {
-  final Map<String, dynamic> listData;
-
-  const _ListCard({required this.listData});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = listData['titre'] ?? 'Liste';
-    final eventName = listData['nom_evenement'] ?? 'Événement';
-    final eventDateStr = listData['date_evenement'];
-    final coverUrl = listData['photo_couverture_url'];
-    final products = listData['produits'] as List<dynamic>? ?? [];
-    
-    DateTime? eventDate;
-    if (eventDateStr != null) {
-      eventDate = DateTime.tryParse(eventDateStr);
-    }
-    String formattedDate = '';
-    int daysLeft = 0;
-    if (eventDate != null) {
-      formattedDate = _formatDate(eventDate);
-      final now = DateTime.now();
-      daysLeft = eventDate.difference(now).inDays;
-      if (daysLeft < 0) daysLeft = 0;
-    }
-
-    double score = 0;
-    for (var p in products) {
-      if (p['statut_financement'] == 'FINANCE') {
-        score += 1;
-      } else if (p['statut_financement'] == 'PARTIELLEMENT_FINANCE') {
-        score += 0.5;
-      }
-    }
-    int progressPercent = products.isEmpty ? 0 : ((score / products.length) * 100).toInt();
-
-    return GestureDetector(
-      onTap: () {
-        context.pushNamed(
-          AppRouteName.listDetail,
-          pathParameters: {'id': listData['id']},
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              child: Stack(
-                children: [
-                  Container(
-                    height: 160,
-                    width: double.infinity,
-                    color: Colors.grey.shade100,
-                    child: coverUrl != null && coverUrl.isNotEmpty
-                        ? Image.network(
-                            coverUrl, 
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.grey),
-                          )
-                        : const Icon(Icons.card_giftcard_rounded, size: 60, color: Colors.grey),
-                  ),
-                  if (eventDate != null)
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3CD).withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          '$daysLeft JOURS RESTANTS',
-                          style: const TextStyle(
-                            color: Color(0xFF856404),
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A5F),
-                      letterSpacing: -0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey.shade500),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '$eventName • $formattedDate',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Financé',
-                        style: TextStyle(
-                          fontSize: 15, 
-                          color: Colors.blueGrey, 
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        '$progressPercent%',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF2E86AB),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: products.isEmpty ? 0 : (score / products.length),
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2E86AB)),
-                      minHeight: 8,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E86AB).withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.card_giftcard_rounded, size: 16, color: Color(0xFF2E86AB)),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '${products.length} articles',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }

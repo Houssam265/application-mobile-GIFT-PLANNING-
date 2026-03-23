@@ -2,10 +2,14 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/app_links.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_button.dart';
@@ -99,6 +103,128 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || _listData == null) return false;
     return _listData!['proprietaire_id'] == user.id;
+  }
+
+  String? get _shareCode {
+    final code = _listData?['code_partage'] as String?;
+    if (code == null || code.trim().isEmpty) return null;
+    return code.trim();
+  }
+
+  String? get _shareUrl {
+    final code = _shareCode;
+    if (code == null) return null;
+    return AppLinks.joinUrl(code);
+  }
+
+  Future<void> _copyShareLink() async {
+    final url = _shareUrl;
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code de partage indisponible.')),
+      );
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Lien de partage copié.')),
+    );
+  }
+
+  Future<void> _shareLink() async {
+    final url = _shareUrl;
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code de partage indisponible.')),
+      );
+      return;
+    }
+
+    await SharePlus.instance.share(
+      ShareParams(
+        text: 'Rejoins ma liste GiftPlan: $url',
+      ),
+    );
+  }
+
+  void _showQrCodeDialog() {
+    final url = _shareUrl;
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code de partage indisponible.')),
+      );
+      return;
+    }
+
+    // Utiliser uniquement des caractères ASCII pour éviter les erreurs d'encodage QR
+    final sanitizedUrl = url.replaceAll(RegExp(r'[^\x00-\x7F]'), '');
+    if (sanitizedUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lien invalide pour le QR code.')),
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('QR code de la liste'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RepaintBoundary(
+              child: SizedBox(
+                width: 210,
+                height: 210,
+                child: QrImageView(
+                  data: sanitizedUrl,
+                  version: 4, // Version fixe (suffisant pour ~50 caractères)
+                  size: 210,
+                  backgroundColor: Colors.white,
+                  errorStateBuilder: (context, error) {
+                    return Container(
+                      width: 210,
+                      height: 210,
+                      color: Colors.grey.shade200,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade600),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'Impossible de générer le QR code',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Scanne ce QR code pour ouvrir le lien de la liste.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickNewCover() async {
@@ -275,9 +401,35 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+          tooltip: 'Retour au tableau de bord',
+        ),
         title: Text(_listData?['titre'] as String? ?? 'Détail de la liste'),
         actions: [
           if (_isOwner) ...[
+            IconButton(
+              icon: const Icon(Icons.copy),
+              tooltip: 'Copier le lien de partage',
+              onPressed: _copyShareLink,
+            ),
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Partager la liste',
+              onPressed: _shareLink,
+            ),
+            IconButton(
+              icon: const Icon(Icons.qr_code),
+              tooltip: 'Afficher le QR code',
+              onPressed: _showQrCodeDialog,
+            ),
             IconButton(
               icon: const Icon(Icons.people_alt_outlined),
               tooltip: 'Gérer les participants',

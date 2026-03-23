@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Si la requête cible un vrai fichier ou dossier, servir tel quel.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Liens d'invitation: page dédiée "ouvrir l'app" (pas de rendu Flutter web).
+RewriteRule ^join/[^/]+/?$ open-app.html [L]
+
+# Sinon, rediriger vers l'entrée Flutter Web.
+RewriteRule ^ index.html [L]

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../domain/auth_notifier.dart';
 import '../domain/auth_state.dart';
 
@@ -86,10 +87,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Réagir aux changements d'état
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.status == AuthStatus.success) {
-        // La redirection vers /home (ou autre) sera gérée par le routeur
-        // lorsqu'il détectera que l'utilisateur est connecté via le onAuthStateChange,
-        // mais on peut aussi forcer la redirection ici si on le souhaite.
-        context.go('/home');
+        final redirectTarget = GoRouterState.of(context).uri.queryParameters['redirect'];
+        if (redirectTarget != null && redirectTarget.isNotEmpty) {
+          context.go(Uri.decodeComponent(redirectTarget));
+        } else {
+          final role = Supabase.instance.client.auth.currentUser?.userMetadata?['role'] as String?;
+          if (role == 'admin') {
+            context.go('/admin');
+          } else {
+            context.go('/home');
+          }
+        }
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(

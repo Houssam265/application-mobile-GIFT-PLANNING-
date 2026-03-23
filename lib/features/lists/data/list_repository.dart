@@ -1,9 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/app_links.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/services/storage_service.dart';
 
 enum ListVisibility { public, private, anonymous }
@@ -68,7 +72,6 @@ class ListRepository {
 
     // 2) Génération d'un code/slug unique
     final codePartage = _generateCodePartage();
-    final slug = _generateSlug();
 
     final dateEvenementIso = dateEvenement.toIso8601String().split('T').first;
 
@@ -78,7 +81,7 @@ class ListRepository {
       'nom_evenement': nomEvenement,
       'date_evenement': dateEvenementIso,
       'photo_couverture_url': coverUrl,
-      'lien_partage': 'giftplan.app/liste/$slug',
+      'lien_partage': AppLinks.joinUrl(codePartage),
       'code_partage': codePartage,
       'visibilite_contributions': visibility.dbValue,
       'proprietaire_id': user.id,
@@ -98,6 +101,35 @@ class ListRepository {
     final data = await _client.from('listes').select().eq('id', id).single();
 
     return data as Map<String, dynamic>;
+  }
+
+  /// Récupère les données minimales pour l'aperçu public via `code_partage`.
+  ///
+  /// Retourne: id, titre, nom_evenement, date_evenement, photo_couverture_url,
+  /// code_partage, products_count
+  Future<Map<String, dynamic>> getJoinPreviewByCode(String code) async {
+    final listData = await _client
+        .from('listes')
+        .select(
+          'id, titre, nom_evenement, date_evenement, photo_couverture_url, code_partage',
+        )
+        .eq('code_partage', code)
+        .maybeSingle();
+
+    if (listData == null) {
+      throw Exception('Aucune liste trouvée pour ce lien.');
+    }
+
+    final listId = listData['id'] as String;
+    final products = await _client
+        .from('produits')
+        .select('id')
+        .eq('liste_id', listId);
+
+    return {
+      ...listData,
+      'products_count': (products as List).length,
+    };
   }
 
   /// Met à jour une liste existante.
@@ -237,9 +269,60 @@ class ListRepository {
     return List.generate(8, (_) => chars[rand.nextInt(chars.length)]).join();
   }
 
-  String _generateSlug() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final rand = Random.secure();
-    return List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
+  /// Demande à rejoindre une liste.
+  ///
+  /// Retourne `PENDING` si une demande est créée/encore en attente,
+  /// `ALREADY_MEMBER` si l'utilisateur est déjà membre.
+  Future<String> joinList(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    // Force refresh de la session
+    await Supabase.instance.client.auth.refreshSession();
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken ?? '';
+
+    if (token.isEmpty) {
+      throw Exception('Session expirée. Merci de vous reconnecter.');
+    }
+
+    print('=== DEBUG JOIN LIST ===');
+    print('token length: ${token.length}');
+    print('token parts: ${token.split('.').length}');
+    print('token valid format: ${token.split('.').length == 3}');
+    print('listId: $id');
+    print('user id: ${user.id}');
+
+    if (token.split('.').length != 3) {
+      await Supabase.instance.client.auth.signOut();
+      throw Exception('Token invalide. Merci de vous reconnecter.');
+    }
+
+    final uri = Uri.parse('https://lvahlaishpyakjygmceo.supabase.co/functions/v1/participant-notifications');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'apikey': SupabaseConstants.supabaseAnonKey,
+      },
+      body: jsonEncode({
+        'action': 'join_request',
+        'listId': id,
+      }),
+    );
+
+    print('=== HTTP RESPONSE ===');
+    print('status: ${response.statusCode}');
+    print('body: ${response.body}');
+
+    final data = jsonDecode(response.body);
+    if (data is Map && data['ok'] == true) {
+      return (data['status']?.toString() ?? 'PENDING');
+    }
+    throw Exception((data is Map ? data['error'] : null) ?? 'Erreur lors de la demande.');
   }
 }
