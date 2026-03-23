@@ -54,10 +54,14 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _acceptMember(String participationId) async {
     try {
-      await Supabase.instance.client
-          .from('participations')
-          .update({'role': 'INVITE'})
-          .eq('id', participationId);
+      await Supabase.instance.client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'join_accepted',
+          'listId': widget.listId,
+          'participationId': participationId,
+        },
+      );
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Participant accepté.')),
@@ -72,10 +76,14 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _refuseMember(String participationId) async {
     try {
-      await Supabase.instance.client
-          .from('participations')
-          .delete()
-          .eq('id', participationId);
+      await Supabase.instance.client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'join_refused',
+          'listId': widget.listId,
+          'participationId': participationId,
+        },
+      );
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Demande refusée.')),

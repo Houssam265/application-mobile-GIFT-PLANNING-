@@ -80,12 +80,16 @@ class _JoinPreviewScreenState extends State<JoinPreviewScreen> {
     
     setState(() => _isJoining = true);
     try {
-      await _repository.joinList(listId);
+      final status = await _repository.joinList(listId);
       if (!mounted) return;
+      if (status == 'ALREADY_MEMBER') {
+        context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vous avez rejoint la liste avec succès !')),
+        const SnackBar(content: Text('Demande envoyée au propriétaire.')),
       );
-      context.goNamed(AppRouteName.listDetail, pathParameters: {'id': listId});
+      context.go('/home');
     } catch (e) {
       if (!mounted) return;
       final errorStr = e.toString();

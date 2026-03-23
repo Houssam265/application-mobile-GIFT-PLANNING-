@@ -35,6 +35,7 @@ void main() async {
         // Au login : appel OneSignal.login(userId) pour lier userId Supabase
         OneSignal.login(userId);
 
+
         // Stocker playerId dans la table profiles (utilisateurs)
         final playerId = OneSignal.User.pushSubscription.id;
         if (playerId != null && playerId.isNotEmpty) {
@@ -53,6 +54,7 @@ void main() async {
       OneSignal.logout();
     }
   });
+
 
   // Listener si le playerId est attribué de manière asynchrone après le login
   OneSignal.User.pushSubscription.addObserver((state) async {
