@@ -15,6 +15,7 @@ import '../../features/products/presentation/add_product_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_users_screen.dart';
+import '../../features/admin/presentation/admin_lists_screen.dart';
 
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
@@ -256,9 +257,7 @@ class AppRouter {
       GoRoute(
         path: '/admin/lists',
         name: AppRouteName.adminLists,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin — Gestion listes — GP-38')),
-        ),
+        builder: (context, state) => const AdminListsScreen(),
       ),
       GoRoute(
         path: '/admin/stats',

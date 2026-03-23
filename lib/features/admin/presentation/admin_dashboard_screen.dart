@@ -50,7 +50,20 @@ class AdminDashboardScreen extends ConsumerWidget {
               },
             ),
           ),
-          // D'autres tuiles (Listes, Stats) viendront ici plus tard
+          const SizedBox(height: 12),
+          Card(
+            elevation: 2,
+            child: ListTile(
+              leading: const Icon(Icons.featured_play_list, color: Colors.blue),
+              title: const Text('Gestion des listes', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Voir toutes les listes, forcer l\'archivage, modération.'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.pushNamed('admin-lists');
+              },
+            ),
+          ),
+          // D'autres tuiles (Stats) viendront ici plus tard
         ],
       ),
     );
