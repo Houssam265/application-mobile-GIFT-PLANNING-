@@ -47,6 +47,35 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
   Uint8List? _newCoverBytes;
   String? _newCoverFileName;
 
+  final Map<String, String> _userNamesCache = {};
+
+  Future<void> _fetchMissingNames(List<String> userIds) async {
+    final missing = userIds.where((id) => !_userNamesCache.containsKey(id)).toList();
+    if (missing.isEmpty) return;
+
+    try {
+      final res = await Supabase.instance.client
+          .from('utilisateurs')
+          .select('id, nom')
+          .inFilter('id', missing);
+      
+      bool changed = false;
+      for (final row in res) {
+        final id = row['id'] as String;
+        final name = row['nom'] as String? ?? 'Utilisateur inconnu';
+        if (_userNamesCache[id] != name) {
+          _userNamesCache[id] = name;
+          changed = true;
+        }
+      }
+      if (changed && mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error fetching user names: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -890,6 +919,60 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                                           ),
                                     ),
                                 ],
+                              ),
+                              Builder(
+                                builder: (context) {
+                                  bool canSeeDetails = false;
+                                  if (_visibility == ListVisibility.public || _visibility == ListVisibility.anonymous) {
+                                    canSeeDetails = true;
+                                  } else if (_visibility == ListVisibility.private && _isOwner) {
+                                    canSeeDetails = true;
+                                  }
+
+                                  if (canSeeDetails && contributions.isNotEmpty) {
+                                    final uids = contributions.map((c) => c['utilisateur_id'] as String).toList();
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _fetchMissingNames(uids);
+                                    });
+
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Contributeurs :',
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          ...contributions.map((c) {
+                                            final uid = c['utilisateur_id'] as String;
+                                            final montant = double.tryParse(c['montant'].toString()) ?? 0.0;
+                                            String displayName;
+                                            if (_visibility == ListVisibility.anonymous) {
+                                              displayName = 'Un participant';
+                                            } else {
+                                              displayName = _userNamesCache[uid] ?? '...';
+                                            }
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 2),
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text('• $displayName', style: theme.textTheme.bodySmall),
+                                                  Text('${montant.toStringAsFixed(2)} €', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                }
                               ),
                               if (hasMyContribution)
                                 Padding(
