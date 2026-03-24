@@ -31,6 +31,11 @@ class AdminDashboardScreen extends ConsumerWidget {
         title: const Text('Administration'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.read(adminDashboardNotifierProvider.notifier).loadStats(),
+            tooltip: 'Actualiser les données',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.grey),
             onPressed: () => Supabase.instance.client.auth.signOut(),
             tooltip: 'Se déconnecter',
@@ -38,9 +43,11 @@ class AdminDashboardScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(adminDashboardNotifierProvider.notifier).loadStats(),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
           Card(
             elevation: 2,
             child: ListTile(
@@ -122,8 +129,9 @@ class AdminDashboardScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
