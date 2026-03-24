@@ -18,6 +18,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_users_screen.dart';
 import '../../features/admin/presentation/admin_lists_screen.dart';
+import '../../features/admin/presentation/admin_logs_screen.dart';
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
 import '../../features/contributions/presentation/contribution_history_list_detail_screen.dart';
@@ -303,9 +304,7 @@ class AppRouter {
       GoRoute(
         path: '/admin/logs',
         name: AppRouteName.adminLogs,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin — Journal d’activité — GP-39')),
-        ),
+        builder: (context, state) => const AdminLogsScreen(),
       ),
     ],
 
