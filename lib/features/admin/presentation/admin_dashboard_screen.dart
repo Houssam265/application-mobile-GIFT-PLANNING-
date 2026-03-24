@@ -163,9 +163,16 @@ class AdminDashboardScreen extends ConsumerWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              reservedSize: 32,
               getTitlesWidget: (double value, TitleMeta meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= entries.length) return const SizedBox.shrink();
+                
+                // Only show every other label if many entries
+                if (entries.length > 8 && index % 2 != 0 && index != entries.length - 1) {
+                  return const SizedBox.shrink();
+                }
+
                 final date = entries[index].key;
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -251,9 +258,17 @@ class AdminDashboardScreen extends ConsumerWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              reservedSize: 32,
+              interval: entries.length > 6 ? (entries.length / 6).ceilToDouble() : 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= entries.length) return const SizedBox.shrink();
+                
+                // Only show labels for specific intervals to avoid crowding
+                if (value % meta.appliedInterval != 0 && index != entries.length - 1) {
+                   return const SizedBox.shrink();
+                }
+
                 final date = entries[index].key;
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),

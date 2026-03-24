@@ -43,12 +43,13 @@ class AdminDashboardNotifier extends StateNotifier<AdminDashboardState> {
     }
     
     final entries = map.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    
+    if (entries.isEmpty) return {};
+
     final now = DateTime.now();
-    var current = DateTime(now.year, now.month - 11, 1); // Max last 12 months
-    if (entries.first.key.isAfter(current)) {
-      current = entries.first.key; 
-    }
+    final limitDate = DateTime(now.year, now.month - 11, 1);
+    
+    // Start from the oldest between limitDate and first entry
+    var current = entries.first.key.isBefore(limitDate) ? limitDate : entries.first.key; 
     
     final end = DateTime(now.year, now.month, 1);
     final filled = <DateTime, int>{};
@@ -68,16 +69,15 @@ class AdminDashboardNotifier extends StateNotifier<AdminDashboardState> {
       map[startOfWeek] = (map[startOfWeek] ?? 0) + 1;
     }
     
-    final now = DateTime.now();
-    final diff = now.weekday - 1;
-    final currentWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: diff));
-    
-    // max last 12 weeks
-    var start = currentWeek.subtract(const Duration(days: 7 * 11));
     final entries = map.entries.toList()..sort((a,b) => a.key.compareTo(b.key));
-    if (entries.first.key.isAfter(start)) {
-      start = entries.first.key;
-    }
+    if (entries.isEmpty) return {};
+
+    final now = DateTime.now();
+    final diffNow = now.weekday - 1;
+    final currentWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: diffNow));
+    
+    final limitWeek = currentWeek.subtract(const Duration(days: 7 * 11));
+    var start = entries.first.key.isBefore(limitWeek) ? limitWeek : entries.first.key;
 
     final filled = <DateTime, int>{};
     var current = start;
