@@ -4,12 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:app_links/app_links.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/notifications/domain/notifications_notifier.dart';
+
+void _handleDeepLink(Uri uri) {
+  if (uri.scheme == 'giftplan') {
+    if (uri.host == 'reset-password' || uri.host == 'reset-callback') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppRouter.router.go('/reset-password');
+      });
+    }
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +33,23 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
     anonKey: SupabaseConstants.supabaseAnonKey,
+    // L’email de reset envoie des tokens en fragment (#access_token=…), flux implicite.
+    // Avec PKCE par défaut, le deep link est ignoré et la session n’est pas restaurée.
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.implicit,
+    ),
   );
+
+  final appLinks = AppLinks();
+
+  appLinks.uriLinkStream.listen((uri) {
+    _handleDeepLink(uri);
+  });
+
+  final initialUri = await appLinks.getInitialLink();
+  if (initialUri != null) {
+    _handleDeepLink(initialUri);
+  }
 
   if (!kIsWeb) {
     await _initOneSignal();
@@ -85,16 +113,53 @@ Future<void> _initOneSignal() async {
 
     OneSignal.Notifications.addClickListener((event) {
       final data = event.notification.additionalData;
-      if (data != null) {
-        final listId = data['listId'] as String?;
-        final eventType = data['event'] as String?;
+      if (data == null) return;
+      final listId = data['listId'] as String?;
+      final eventType = data['event'] as String?;
+      if (eventType == null) return;
 
-        if (listId != null && eventType == 'join_request') {
+      final productId = data['productId'] as String?;
+
+      switch (eventType) {
+        case 'join_request':
+          if (listId == null) return;
           AppRouter.router.pushNamed(
             AppRouteName.participantsManage,
             pathParameters: {'id': listId},
           );
-        }
+        case 'suggestion_new':
+          if (listId == null) return;
+          AppRouter.router.pushNamed(
+            AppRouteName.suggestionsManage,
+            pathParameters: {'id': listId},
+          );
+        case 'join_accepted':
+        case 'join_refused':
+        case 'suggestion_accepted':
+        case 'suggestion_refused':
+        case 'event_reminder':
+        case 'list_auto_archived':
+        case 'list_archived':
+        case 'funding_incomplete_j1':
+          if (listId == null) return;
+          AppRouter.router.pushNamed(
+            AppRouteName.listDetail,
+            pathParameters: {'id': listId},
+          );
+        case 'contribution_new':
+        case 'product_fully_funded':
+        case 'product_funding_dropped':
+          if (productId != null && productId.isNotEmpty) {
+            AppRouter.router.pushNamed(
+              AppRouteName.product,
+              pathParameters: {'id': productId},
+            );
+          } else if (listId != null) {
+            AppRouter.router.pushNamed(
+              AppRouteName.listDetail,
+              pathParameters: {'id': listId},
+            );
+          }
       }
     });
   } on MissingPluginException catch (e) {
@@ -161,6 +226,16 @@ class _AppState extends ConsumerState<App> {
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
       scaffoldMessengerKey: giftplanScaffoldMessengerKey,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('fr', 'FR'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('fr', 'FR'),
     );
   }
 }

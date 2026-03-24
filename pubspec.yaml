@@ -10,11 +10,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
+  intl: ^0.20.2
   cupertino_icons: ^1.0.8
 
   # ── Backend Supabase ──────────────────────────────
   supabase_flutter: ^2.3.0
+  jwt_decode: ^0.3.1
 
   # ── Navigation ───────────────────────────────────
   go_router: ^13.0.0

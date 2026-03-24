@@ -63,6 +63,19 @@ class AdminDashboardScreen extends ConsumerWidget {
               },
             ),
           ),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 2,
+            child: ListTile(
+              leading: const Icon(Icons.history_rounded, color: Colors.orange),
+              title: const Text('Journal d\'activité', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Historique des actions effectuées par les administrateurs.'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                context.pushNamed('admin-logs');
+              },
+            ),
+          ),
           // D'autres tuiles (Stats) viendront ici plus tard
         ],
       ),

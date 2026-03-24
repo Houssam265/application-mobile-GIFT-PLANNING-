@@ -9,22 +9,58 @@
 --   - YOUR_SERVICE_ROLE_KEY par la clé service role (à stocker plutôt
 --     dans une variable de configuration sécurisée côté Supabase).
 
--- select
---   cron.schedule(
---     'archive_expired_lists_daily',
---     '0 3 * * *',
---     $$
---     select
---       net.http_post(
---         url := 'https://YOUR_PROJECT_REF.functions.supabase.co/archive-expired-lists',
---         body := '{}'::jsonb,
---         headers := jsonb_build_object(
---           'Content-Type', 'application/json',
---           'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
---         )
---       );
---     $$
---   );
+select
+  cron.schedule(
+    'archive_expired_lists_daily',
+    '0 3 * * *',
+    $$
+    select
+       net.http_post(
+        url := 'https://YOUR_PROJECT_REF.functions.supabase.co/archive-expired-lists',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
+        )
+      );
+    $$
+  );
+
+-- Rappels J-7 / J-1 (Edge Function event-reminders) — même clé service role :
+select
+  cron.schedule(
+    'event_reminders_daily',
+    '15 8 * * *',
+    $$
+    select
+      net.http_post(
+        url := 'https://YOUR_PROJECT_REF.functions.supabase.co/event-reminders',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
+        )
+      );
+    $$
+  );
+
+-- Alerte financement incomplet J-1 (Edge Function funding-incomplete-alert) :
+select
+  cron.schedule(
+    'funding_incomplete_alert_daily',
+    '30 8 * * *',
+    $$
+    select
+      net.http_post(
+        url := 'https://YOUR_PROJECT_REF.functions.supabase.co/funding-incomplete-alert',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
+        )
+      );
+    $$
+  );
 
 -- ============================================================================
 -- Fin du script (modèle, à adapter dans le SQL Editor Supabase)

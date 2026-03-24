@@ -18,11 +18,15 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_users_screen.dart';
 import '../../features/admin/presentation/admin_lists_screen.dart';
+import '../../features/admin/presentation/admin_logs_screen.dart';
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
+import '../../features/contributions/presentation/contribution_history_list_detail_screen.dart';
+import '../../features/contributions/presentation/contribution_history_screen.dart';
 import '../../features/notifications/presentation/notifications_center_screen.dart';
 
 import 'go_router_refresh_stream.dart';
+import '../auth/password_recovery.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -58,6 +62,7 @@ class AppRouteName {
   // Contributions
   static const contribute = 'contribute';
   static const contributionsHistory = 'contributions-history';
+  static const contributionsHistoryList = 'contributions-history-list';
 
   // Participants & invitations
   static const participantsManage = 'participants-manage';
@@ -229,9 +234,17 @@ class AppRouter {
       GoRoute(
         path: '/contributions/history',
         name: AppRouteName.contributionsHistory,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Historique des contributions — GP-29')),
-        ),
+        builder: (context, state) => const ContributionHistoryScreen(),
+        routes: [
+          GoRoute(
+            path: ':listId',
+            name: AppRouteName.contributionsHistoryList,
+            builder: (context, state) {
+              final listId = state.pathParameters['listId'] ?? '';
+              return ContributionHistoryListDetailScreen(listId: listId);
+            },
+          ),
+        ],
       ),
 
       GoRoute(
@@ -291,9 +304,7 @@ class AppRouter {
       GoRoute(
         path: '/admin/logs',
         name: AppRouteName.adminLogs,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Admin — Journal d’activité — GP-39')),
-        ),
+        builder: (context, state) => const AdminLogsScreen(),
       ),
     ],
 
@@ -313,6 +324,10 @@ class AppRouter {
             return '/join/$code';
           }
           return '/join';
+        }
+        // Lien mail reset : giftplan://reset-password/#access_token=…
+        if (host == 'reset-password' || host == 'reset-callback') {
+          return '/reset-password';
         }
       }
 
@@ -336,6 +351,7 @@ class AppRouter {
       final isJoinPreview = location.startsWith('/join/');
 
       final user = Supabase.instance.client.auth.currentUser;
+      final session = Supabase.instance.client.auth.currentSession;
 
       // ── CAS 1 : Utilisateur NON connecté ──
       if (user == null) {
@@ -352,6 +368,14 @@ class AppRouter {
       }
 
       // ── CAS 2 : Utilisateur CONNECTÉ ──
+      // Session « recovery » (lien e-mail) : forcer l’écran nouveau mot de passe.
+      if (isPasswordRecoverySession(session)) {
+        if (location != '/reset-password') {
+          return '/reset-password';
+        }
+        return null;
+      }
+
       final role = (user.userMetadata?['role'] as String?) ?? 'user';
 
       if (location == '/') {
