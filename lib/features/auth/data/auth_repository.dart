@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/app_links.dart';
+
 class AuthRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
@@ -33,10 +35,16 @@ class AuthRepository {
     }
   }
 
+  /// Doit être autorisé dans Supabase Dashboard → Auth → URL de redirection :
+  /// - `giftplan://reset-password`
+  /// - `${AppLinks.baseUrl}/reset-password` (web)
   Future<void> sendPasswordResetEmail(String email) async {
+    final redirectTo = kIsWeb
+        ? '${AppLinks.baseUrl}/reset-password'
+        : 'giftplan://reset-password';
     await _client.auth.resetPasswordForEmail(
       email,
-      redirectTo: 'giftplan://reset-callback/',
+      redirectTo: redirectTo,
     );
   }
 

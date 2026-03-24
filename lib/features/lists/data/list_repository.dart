@@ -1,9 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_links.dart';
@@ -194,6 +192,27 @@ class ListRepository {
         })
         .eq('id', id)
         .eq('proprietaire_id', user.id);
+
+    try {
+      await Supabase.instance.client.auth.refreshSession();
+      final token =
+          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      if (token.isNotEmpty) {
+        await _client.functions.invoke(
+          'participant-notifications',
+          body: {
+            'action': 'list_archived_notify',
+            'listId': id,
+          },
+          headers: {
+            'Authorization': 'Bearer $token',
+            'apikey': SupabaseConstants.supabaseAnonKey,
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('list_archived_notify: $e');
+    }
   }
 
   /// Réactive une liste archivée avec une nouvelle date d'événement.
@@ -288,38 +307,24 @@ class ListRepository {
       throw Exception('Session expirée. Merci de vous reconnecter.');
     }
 
-    print('=== DEBUG JOIN LIST ===');
-    print('token length: ${token.length}');
-    print('token parts: ${token.split('.').length}');
-    print('token valid format: ${token.split('.').length == 3}');
-    print('listId: $id');
-    print('user id: ${user.id}');
-
     if (token.split('.').length != 3) {
       await Supabase.instance.client.auth.signOut();
       throw Exception('Token invalide. Merci de vous reconnecter.');
     }
 
-    final uri = Uri.parse('https://lvahlaishpyakjygmceo.supabase.co/functions/v1/participant-notifications');
-
-    final response = await http.post(
-      uri,
+    final res = await _client.functions.invoke(
+      'participant-notifications',
+      body: {
+        'action': 'join_request',
+        'listId': id,
+      },
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
         'apikey': SupabaseConstants.supabaseAnonKey,
       },
-      body: jsonEncode({
-        'action': 'join_request',
-        'listId': id,
-      }),
     );
 
-    print('=== HTTP RESPONSE ===');
-    print('status: ${response.statusCode}');
-    print('body: ${response.body}');
-
-    final data = jsonDecode(response.body);
+    final data = res.data;
     if (data is Map && data['ok'] == true) {
       return (data['status']?.toString() ?? 'PENDING');
     }

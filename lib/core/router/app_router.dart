@@ -25,6 +25,7 @@ import '../../features/contributions/presentation/contribution_history_screen.da
 import '../../features/notifications/presentation/notifications_center_screen.dart';
 
 import 'go_router_refresh_stream.dart';
+import '../auth/password_recovery.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -325,6 +326,10 @@ class AppRouter {
           }
           return '/join';
         }
+        // Lien mail reset : giftplan://reset-password/#access_token=…
+        if (host == 'reset-password' || host == 'reset-callback') {
+          return '/reset-password';
+        }
       }
 
       // Certains navigateurs ajoutent automatiquement des query params techniques
@@ -347,6 +352,7 @@ class AppRouter {
       final isJoinPreview = location.startsWith('/join/');
 
       final user = Supabase.instance.client.auth.currentUser;
+      final session = Supabase.instance.client.auth.currentSession;
 
       // ── CAS 1 : Utilisateur NON connecté ──
       if (user == null) {
@@ -363,6 +369,14 @@ class AppRouter {
       }
 
       // ── CAS 2 : Utilisateur CONNECTÉ ──
+      // Session « recovery » (lien e-mail) : forcer l’écran nouveau mot de passe.
+      if (isPasswordRecoverySession(session)) {
+        if (location != '/reset-password') {
+          return '/reset-password';
+        }
+        return null;
+      }
+
       final role = (user.userMetadata?['role'] as String?) ?? 'user';
 
       if (location == '/') {

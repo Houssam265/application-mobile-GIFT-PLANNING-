@@ -1,12 +1,44 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/supabase_constants.dart';
 import '../../products/domain/product_model.dart';
 import '../domain/contribution_history_model.dart';
 import '../domain/contribution_model.dart';
 
 class ContributionRepository {
   final SupabaseClient _client = Supabase.instance.client;
+
+  Future<void> _invokeContributionPush(Map<String, dynamic> body) async {
+    try {
+      await Supabase.instance.client.auth.refreshSession();
+      final token =
+          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      if (token.isEmpty) return;
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: body,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'apikey': SupabaseConstants.supabaseAnonKey,
+        },
+      );
+    } catch (e) {
+      debugPrint('participant-notifications (contribution): $e');
+    }
+  }
+
+  /// Push OneSignal après annulation ayant fait repasser un produit sous 100 % (notif in-app déjà insérée).
+  Future<void> invokeFundingDroppedPush({
+    required String listId,
+    required String productId,
+  }) async {
+    await _invokeContributionPush({
+      'action': 'product_funding_dropped',
+      'listId': listId,
+      'productId': productId,
+    });
+  }
 
   Future<void> _notifyOwnerIfJustFullyFunded({
     required String productId,
@@ -40,6 +72,54 @@ class ContributionRepository {
       'type': 'FINANCEMENT',
       'message': 'Le produit "$productName" est entièrement financé !',
       'est_lue': false,
+    });
+
+    await _invokeContributionPush({
+      'action': 'product_fully_funded',
+      'listId': listId,
+      'productId': productId,
+    });
+  }
+
+  Future<void> _notifyOwnerNewContribution({
+    required String listId,
+    required String productId,
+    required String contributorId,
+    required String productName,
+    required double amount,
+    required bool isUpdate,
+  }) async {
+    final list = await _client
+        .from('listes')
+        .select('proprietaire_id')
+        .eq('id', listId)
+        .maybeSingle();
+    final ownerId = list?['proprietaire_id'] as String?;
+    if (ownerId == null || ownerId.isEmpty || ownerId == contributorId) {
+      return;
+    }
+
+    final userRow = await _client
+        .from('utilisateurs')
+        .select('nom')
+        .eq('id', contributorId)
+        .maybeSingle();
+    final name = (userRow?['nom'] as String?) ?? 'Un participant';
+    final msg = isUpdate
+        ? '$name a ajusté sa promesse à ${amount.toStringAsFixed(2)}€ pour « $productName ».'
+        : '$name a promis ${amount.toStringAsFixed(2)}€ pour « $productName ».';
+
+    await _client.from('notifications').insert({
+      'utilisateur_id': ownerId,
+      'type': 'CONTRIBUTION',
+      'message': msg,
+      'est_lue': false,
+    });
+
+    await _invokeContributionPush({
+      'action': 'contribution_received',
+      'listId': listId,
+      'productId': productId,
     });
   }
 
@@ -214,6 +294,14 @@ class ContributionRepository {
       listId: effectiveListId,
       wasFinanceBefore: wasFinanceBefore,
     );
+    await _notifyOwnerNewContribution(
+      listId: effectiveListId,
+      productId: productId,
+      contributorId: userId,
+      productName: productNameBefore,
+      amount: amount,
+      isUpdate: false,
+    );
     return contribution;
   }
 
@@ -295,6 +383,15 @@ class ContributionRepository {
       productName: productNameBefore,
       listId: listIdForNotif,
       wasFinanceBefore: wasFinanceBefore,
+    );
+    final contributorId = current['utilisateur_id'] as String;
+    await _notifyOwnerNewContribution(
+      listId: listIdForNotif,
+      productId: produitId,
+      contributorId: contributorId,
+      productName: productNameBefore,
+      amount: newAmount,
+      isUpdate: true,
     );
     return updated;
   }
