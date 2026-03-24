@@ -421,6 +421,11 @@ class AppRouter {
             !location.startsWith('/reset-password')) {
           return '/admin';
         }
+      } else {
+        // Rediriger les non-admins qui tenteraient d'accéder aux routes admin
+        if (location.startsWith('/admin')) {
+          return '/home';
+        }
       }
 
       return null;
