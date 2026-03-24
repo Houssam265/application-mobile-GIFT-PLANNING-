@@ -20,6 +20,8 @@ import '../../features/admin/presentation/admin_users_screen.dart';
 import '../../features/admin/presentation/admin_lists_screen.dart';
 import '../../features/lists/presentation/participants_manage_screen.dart';
 import '../../features/contributions/presentation/contribute_screen.dart';
+import '../../features/contributions/presentation/contribution_history_list_detail_screen.dart';
+import '../../features/contributions/presentation/contribution_history_screen.dart';
 import '../../features/notifications/presentation/notifications_center_screen.dart';
 
 import 'go_router_refresh_stream.dart';
@@ -58,6 +60,7 @@ class AppRouteName {
   // Contributions
   static const contribute = 'contribute';
   static const contributionsHistory = 'contributions-history';
+  static const contributionsHistoryList = 'contributions-history-list';
 
   // Participants & invitations
   static const participantsManage = 'participants-manage';
@@ -229,9 +232,17 @@ class AppRouter {
       GoRoute(
         path: '/contributions/history',
         name: AppRouteName.contributionsHistory,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Historique des contributions — GP-29')),
-        ),
+        builder: (context, state) => const ContributionHistoryScreen(),
+        routes: [
+          GoRoute(
+            path: ':listId',
+            name: AppRouteName.contributionsHistoryList,
+            builder: (context, state) {
+              final listId = state.pathParameters['listId'] ?? '';
+              return ContributionHistoryListDetailScreen(listId: listId);
+            },
+          ),
+        ],
       ),
 
       GoRoute(

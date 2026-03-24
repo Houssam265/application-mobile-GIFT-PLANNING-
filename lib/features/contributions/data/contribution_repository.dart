@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../products/domain/product_model.dart';
+import '../domain/contribution_history_model.dart';
 import '../domain/contribution_model.dart';
 
 class ContributionRepository {
@@ -296,6 +297,88 @@ class ContributionRepository {
       wasFinanceBefore: wasFinanceBefore,
     );
     return updated;
+  }
+
+  /// Listes distinctes où l’utilisateur a au moins une contribution (méta + tri par dernière activité).
+  Future<List<ContributionHistoryListSummary>> fetchContributionHistoryListSummaries() async {
+    final rows = await fetchContributionHistoryForCurrentUser();
+    return ContributionHistoryListSummary.aggregate(rows);
+  }
+
+  /// Contributions de l’utilisateur pour une liste donnée (produits + liste jointes), tri [date_promesse] décroissant.
+  Future<List<ContributionHistoryRow>> fetchContributionHistoryForList(String listId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final res = await _client
+        .from('contributions')
+        .select('''
+          id,
+          produit_id,
+          utilisateur_id,
+          montant,
+          est_annulee,
+          date_promesse,
+          date_modification,
+          produits!inner(
+            nom,
+            prix_cible,
+            liste_id,
+            listes!inner(
+              titre,
+              visibilite_contributions,
+              statut,
+              proprietaire_id
+            )
+          )
+        ''')
+        .eq('utilisateur_id', user.id)
+        .eq('produits.liste_id', listId)
+        .order('date_promesse', ascending: false);
+
+    return (res as List)
+        .map((e) => ContributionHistoryRow.fromSupabaseMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Historique GP-29 : toutes les contributions de l’utilisateur connecté,
+  /// avec produit et liste (visibilité, statut, propriétaire), tri [date_promesse] décroissant.
+  Future<List<ContributionHistoryRow>> fetchContributionHistoryForCurrentUser() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Utilisateur non connecté.');
+    }
+
+    final res = await _client
+        .from('contributions')
+        .select('''
+          id,
+          produit_id,
+          utilisateur_id,
+          montant,
+          est_annulee,
+          date_promesse,
+          date_modification,
+          produits!inner(
+            nom,
+            prix_cible,
+            liste_id,
+            listes!inner(
+              titre,
+              visibilite_contributions,
+              statut,
+              proprietaire_id
+            )
+          )
+        ''')
+        .eq('utilisateur_id', user.id)
+        .order('date_promesse', ascending: false);
+
+    return (res as List)
+        .map((e) => ContributionHistoryRow.fromSupabaseMap(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> cancelContribution(String contributionId) async {

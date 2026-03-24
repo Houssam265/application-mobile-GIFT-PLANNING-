@@ -182,8 +182,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 60),
-                  
+                  const SizedBox(height: 28),
+
+                  Material(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      leading: Icon(Icons.history, color: AppTheme.primary, size: 26),
+                      title: Text(
+                        'Mes contributions',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      subtitle: Text(
+                        'Historique sur toutes vos listes',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onTap: () => context.pushNamed(AppRouteName.contributionsHistory),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
                   // Delete Account Action
                   OutlinedButton.icon(
                     onPressed: () => _showDeleteAccountDialog(user.email ?? ''),
