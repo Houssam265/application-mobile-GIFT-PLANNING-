@@ -53,20 +53,15 @@ Deno.serve(async (req) => {
     }
 
     const url = Deno.env.get('SUPABASE_URL') ?? ''
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const providedToken = req.headers.get('Authorization')?.replace('Bearer ', '').trim() ?? ''
     const oneSignalAppId = Deno.env.get('ONESIGNAL_APP_ID') ?? ''
     const oneSignalRestApiKey = Deno.env.get('ONESIGNAL_REST_API_KEY') ?? ''
 
-    if (!url || !serviceRoleKey) {
-      return jsonResponse({ error: 'Missing Supabase env' }, 500)
+    if (!url || !providedToken) {
+      return jsonResponse({ error: 'Missing Supabase env or Authorization header' }, 401)
     }
 
-    const authHeader = req.headers.get('Authorization') ?? ''
-    if (authHeader !== `Bearer ${serviceRoleKey}`) {
-      return jsonResponse({ error: 'Unauthorized' }, 401)
-    }
-
-    const supabase = createClient(url, serviceRoleKey)
+    const supabase = createClient(url, providedToken)
 
     const now = new Date()
     const threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000)
