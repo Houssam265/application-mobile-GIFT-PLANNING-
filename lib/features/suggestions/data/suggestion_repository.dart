@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/services/storage_service.dart';
 import '../../products/domain/product_model.dart';
 import '../domain/suggestion_model.dart';
@@ -9,6 +11,25 @@ import '../domain/suggestion_model.dart';
 class SuggestionRepository {
   final SupabaseClient _client = Supabase.instance.client;
   final _storage = StorageService();
+
+  Future<void> _invokePush(Map<String, dynamic> body) async {
+    try {
+      await Supabase.instance.client.auth.refreshSession();
+      final token =
+          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      if (token.isEmpty) return;
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: body,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'apikey': SupabaseConstants.supabaseAnonKey,
+        },
+      );
+    } catch (e) {
+      debugPrint('participant-notifications: $e');
+    }
+  }
 
   Future<SuggestionModel> submitSuggestion({
     required String listeId,
@@ -64,7 +85,14 @@ class SuggestionRepository {
       });
     }
 
-    return SuggestionModel.fromJson(inserted);
+    final model = SuggestionModel.fromJson(inserted);
+    await _invokePush({
+      'action': 'suggestion_created',
+      'listId': listeId,
+      'suggestionId': model.id,
+    });
+
+    return model;
   }
 
   Future<List<SuggestionModel>> getSuggestionsForList(String listeId) async {
@@ -122,6 +150,12 @@ class SuggestionRepository {
         'est_lue': false,
       });
     }
+
+    await _invokePush({
+      'action': 'suggestion_accepted',
+      'listId': listeId,
+      'suggestionId': suggestionId,
+    });
   }
 
   Future<void> refuseSuggestion({
@@ -165,5 +199,11 @@ class SuggestionRepository {
         'est_lue': false,
       });
     }
+
+    await _invokePush({
+      'action': 'suggestion_refused',
+      'listId': suggestion['liste_id'] as String,
+      'suggestionId': suggestionId,
+    });
   }
 }

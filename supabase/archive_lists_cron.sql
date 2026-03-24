@@ -26,6 +26,24 @@
 --     $$
 --   );
 
+-- Rappels J-7 / J-1 (Edge Function event-reminders) — même clé service role :
+-- select
+--   cron.schedule(
+--     'event_reminders_daily',
+--     '15 8 * * *',
+--     $$
+--     select
+--       net.http_post(
+--         url := 'https://YOUR_PROJECT_REF.functions.supabase.co/event-reminders',
+--         body := '{}'::jsonb,
+--         headers := jsonb_build_object(
+--           'Content-Type', 'application/json',
+--           'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
+--         )
+--       );
+--     $$
+--   );
+
 -- ============================================================================
 -- Fin du script (modèle, à adapter dans le SQL Editor Supabase)
 -- ============================================================================

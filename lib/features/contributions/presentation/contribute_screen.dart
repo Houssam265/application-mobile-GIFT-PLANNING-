@@ -211,6 +211,11 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
           'message': msg,
           'est_lue': false,
         });
+
+        await ref.read(contributionRepositoryProvider).invokeFundingDroppedPush(
+              listId: _product!.listeId,
+              productId: _product!.id,
+            );
       }
     } catch (e) {
       if (!mounted) return;

@@ -15,6 +15,7 @@ dependencies:
 
   # ── Backend Supabase ──────────────────────────────
   supabase_flutter: ^2.3.0
+  jwt_decode: ^0.3.1
 
   # ── Navigation ───────────────────────────────────
   go_router: ^13.0.0
