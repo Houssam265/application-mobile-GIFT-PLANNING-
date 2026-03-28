@@ -17,6 +17,15 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Force a fresh fetch from DB every time this screen becomes active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(adminUserNotifierProvider);
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -35,7 +44,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           ),
         );
         ref.read(adminUserNotifierProvider.notifier).resetStatus();
-      } else if (next.status == AdminUserStatus.success && previous?.status != AdminUserStatus.success && previous!.status != AdminUserStatus.initial) {
+      } else if (next.actionSucceeded) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Action effectuée avec succès.')),
         );
@@ -54,16 +63,18 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
               decoration: InputDecoration(
                 hintText: 'Rechercher par nom ou email...',
                 prefixIcon: const Icon(Icons.search),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
                           _searchController.clear();
                           ref.read(adminUserNotifierProvider.notifier).onSearchQueryChanged('');

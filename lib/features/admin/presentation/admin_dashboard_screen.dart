@@ -8,11 +8,25 @@ import '../../profile/domain/profile_notifier.dart';
 import '../domain/admin_dashboard_notifier.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-class AdminDashboardScreen extends ConsumerWidget {
+class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh dashboard stats from DB every time this screen is (re)entered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(adminDashboardNotifierProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profileState = ref.watch(profileNotifierProvider);
     final dashboardState = ref.watch(adminDashboardNotifierProvider);
     

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../domain/admin_log_model.dart';
 import '../domain/admin_log_notifier.dart';
 import '../domain/admin_log_state.dart';
 
@@ -20,6 +21,10 @@ class _AdminLogsScreenState extends ConsumerState<AdminLogsScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Force a fresh fetch from DB every time this screen becomes active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(adminLogNotifierProvider);
+    });
   }
 
   @override
@@ -208,57 +213,137 @@ class _AdminLogsScreenState extends ConsumerState<AdminLogsScreen> {
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: Colors.grey.shade200),
             ),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: color.withOpacity(0.1),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              title: Text(
-                log.actionLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              subtitle: Column(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 4),
-                  RichText(
-                    text: TextSpan(
-                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                  // Icon
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: color.withOpacity(0.12),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const TextSpan(text: 'Par '),
-                        TextSpan(
-                          text: log.adminName ?? 'Admin inconnu',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        // Action label + date
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              log.actionLabel,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: color,
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  DateFormat('HH:mm').format(log.createdAt),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                                Text(
+                                  DateFormat('dd/MM/yy').format(log.createdAt),
+                                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Target info — prominent
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.07),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: color.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  log.targetType == 'USER' ? Icons.person_outline : Icons.list_alt,
+                                  size: 14,
+                                  color: color,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(child: _buildCibleWidget(log, color)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        // Admin who did the action
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            children: [
+                              const TextSpan(text: 'Par '),
+                              TextSpan(
+                                text: log.adminName ?? 'Admin inconnu',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  SelectableText(
-                    'ID Cible: ${log.targetId}',
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontFamily: 'monospace'),
-                  ),
                 ],
               ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    DateFormat('HH:mm').format(log.createdAt),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  Text(
-                    DateFormat('dd/MM/yy').format(log.createdAt),
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
-              ),
-              isThreeLine: true,
             ),
           );
         },
       ),
+    );
+  }
+
+  /// Builds a rich widget for the target (cible) of the action.
+  Widget _buildCibleWidget(AdminLog log, Color color) {
+    final shortId = log.targetId.length > 8
+        ? log.targetId.substring(0, 8)
+        : log.targetId;
+    final typeLabel = log.targetType == 'USER' ? 'Utilisateur' : 'Liste';
+    final name = log.targetName;
+    final email = log.targetEmail;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Type + name (or fallback short ID)
+        Text(
+          name != null && name.isNotEmpty
+              ? '$typeLabel · $name'
+              : '$typeLabel · ID: $shortId…',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade800,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        // Email line (if available)
+        if (email != null && email.isNotEmpty) ...
+          [
+            const SizedBox(height: 2),
+            Text(
+              email,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+      ],
     );
   }
 

@@ -27,7 +27,7 @@ class AdminListNotifier extends StateNotifier<AdminListState> {
   }
 
   void onSearchQueryChanged(String query) {
-    state = state.copyWith(searchQuery: query);
+    state = state.copyWith(searchQuery: query, actionSucceeded: false);
     
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
@@ -36,12 +36,12 @@ class AdminListNotifier extends StateNotifier<AdminListState> {
   }
 
   void onFilterChanged(String filter) {
-    state = state.copyWith(currentFilter: filter);
+    state = state.copyWith(currentFilter: filter, actionSucceeded: false);
     fetchLists();
   }
 
   Future<void> fetchLists() async {
-    state = state.copyWith(status: AdminListStatus.loading);
+    state = state.copyWith(status: AdminListStatus.loading, actionSucceeded: false);
     try {
       final lists = await _repository.fetchLists(
         query: state.searchQuery,
@@ -56,43 +56,48 @@ class AdminListNotifier extends StateNotifier<AdminListState> {
         totalLists: stats['total'] ?? 0,
         activeLists: stats['active'] ?? 0,
         archivedLists: stats['archived'] ?? 0,
+        actionSucceeded: false, // Ensure success of fetch doesn't trigger toast
       );
     } catch (e) {
       state = state.copyWith(
         status: AdminListStatus.error,
         errorMessage: 'Erreur au chargement des listes: ${e.toString()}',
+        actionSucceeded: false,
       );
     }
   }
 
   Future<void> archiveList(String listId) async {
-    state = state.copyWith(status: AdminListStatus.loading);
+    state = state.copyWith(status: AdminListStatus.loading, actionSucceeded: false);
     try {
       await _repository.updateListStatus(listId, 'ARCHIVEE');
-      await fetchLists(); // Recharger pour appliquer les filtres et avoir la date d'archivage exacte DB
+      await fetchLists(); // Recharger pour appliquer les filtres
+      state = state.copyWith(actionSucceeded: true);
     } catch (e) {
       state = state.copyWith(
         status: AdminListStatus.error,
         errorMessage: 'Échec de l\'archivage: ${e.toString()}',
+        actionSucceeded: false,
       );
     }
   }
 
   Future<void> deleteList(String listId) async {
-    state = state.copyWith(status: AdminListStatus.loading);
+    state = state.copyWith(status: AdminListStatus.loading, actionSucceeded: false);
     try {
       await _repository.deleteList(listId);
       final updatedLists = state.lists.where((l) => l.id != listId).toList();
-      state = state.copyWith(status: AdminListStatus.success, lists: updatedLists);
+      state = state.copyWith(status: AdminListStatus.success, lists: updatedLists, actionSucceeded: true);
     } catch (e) {
       state = state.copyWith(
         status: AdminListStatus.error,
         errorMessage: 'Impossible de supprimer cette liste: ${e.toString()}',
+        actionSucceeded: false,
       );
     }
   }
 
   void resetStatus() {
-    state = state.copyWith(status: AdminListStatus.initial, errorMessage: null);
+    state = state.copyWith(status: AdminListStatus.initial, errorMessage: null, actionSucceeded: false);
   }
 }
