@@ -77,8 +77,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
       final joinedListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id)')
+          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id, role)')
           .eq('participations.utilisateur_id', user.id)
+          .eq('participations.role', 'INVITE')
           .neq('proprietaire_id', user.id)
           .eq('statut', 'ACTIVE')
           .order('date_creation', ascending: false);
@@ -92,8 +93,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
       final joinedArchivedListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id)')
+          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id, role)')
           .eq('participations.utilisateur_id', user.id)
+          .eq('participations.role', 'INVITE')
           .neq('proprietaire_id', user.id)
           .eq('statut', 'ARCHIVEE')
           .order('date_creation', ascending: false);
