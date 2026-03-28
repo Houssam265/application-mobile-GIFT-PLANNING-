@@ -17,6 +17,15 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Force a fresh fetch from DB every time this screen becomes active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(adminUserNotifierProvider);
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
