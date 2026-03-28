@@ -1,5 +1,4 @@
 import '../domain/admin_list_model.dart';
-import '../../profile/domain/profile_state.dart'; // Pour Status
 
 enum AdminListStatus { initial, loading, success, error }
 
@@ -12,6 +11,7 @@ class AdminListState {
   final int totalLists;
   final int activeLists;
   final int archivedLists;
+  final bool actionSucceeded;
 
   const AdminListState({
     this.status = AdminListStatus.initial,
@@ -22,6 +22,7 @@ class AdminListState {
     this.totalLists = 0,
     this.activeLists = 0,
     this.archivedLists = 0,
+    this.actionSucceeded = false,
   });
 
   AdminListState copyWith({
@@ -33,6 +34,7 @@ class AdminListState {
     int? totalLists,
     int? activeLists,
     int? archivedLists,
+    bool? actionSucceeded,
   }) {
     return AdminListState(
       status: status ?? this.status,
@@ -43,6 +45,7 @@ class AdminListState {
       totalLists: totalLists ?? this.totalLists,
       activeLists: activeLists ?? this.activeLists,
       archivedLists: archivedLists ?? this.archivedLists,
+      actionSucceeded: actionSucceeded ?? this.actionSucceeded,
     );
   }
 }

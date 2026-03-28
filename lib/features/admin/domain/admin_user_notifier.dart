@@ -27,7 +27,7 @@ class AdminUserNotifier extends StateNotifier<AdminUserState> {
   }
 
   void onSearchQueryChanged(String query) {
-    state = state.copyWith(searchQuery: query);
+    state = state.copyWith(searchQuery: query, actionSucceeded: false);
     
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
@@ -36,7 +36,7 @@ class AdminUserNotifier extends StateNotifier<AdminUserState> {
   }
 
   Future<void> fetchUsers({String? query}) async {
-    state = state.copyWith(status: AdminUserStatus.loading);
+    state = state.copyWith(status: AdminUserStatus.loading, actionSucceeded: false);
     try {
       final q = query ?? state.searchQuery;
       
@@ -55,36 +55,42 @@ class AdminUserNotifier extends StateNotifier<AdminUserState> {
         totalUsers: stats['total'] ?? 0,
         activeUsers: stats['active'] ?? 0,
         suspendedUsers: stats['suspended'] ?? 0,
+        actionSucceeded: false, // Ensure success of fetch doesn't trigger "action success" snackbar
       );
     } catch (e) {
       state = state.copyWith(
         status: AdminUserStatus.error,
         errorMessage: 'Erreur au chargement des utilisateurs: ${e.toString()}',
+        actionSucceeded: false,
       );
     }
   }
 
   void onFilterChanged(String filter) {
-    state = state.copyWith(currentFilter: filter);
+    state = state.copyWith(currentFilter: filter, actionSucceeded: false);
     fetchUsers();
   }
 
   Future<void> toggleUserSuspension(String userId, bool nouveauStatutSuspendu) async {
-    state = state.copyWith(status: AdminUserStatus.loading);
+    state = state.copyWith(status: AdminUserStatus.loading, actionSucceeded: false);
     try {
       await _repository.updateUserStatus(userId, nouveauStatutSuspendu);
       
       // Refresh both list and stats
       await fetchUsers();
+      
+      // Mark action as successful to show toast 
+      state = state.copyWith(actionSucceeded: true);
     } catch (e) {
       state = state.copyWith(
         status: AdminUserStatus.error,
         errorMessage: 'Échec de modification du statut: ${e.toString()}',
+        actionSucceeded: false,
       );
     }
   }
 
   void resetStatus() {
-    state = state.copyWith(status: AdminUserStatus.initial, errorMessage: null);
+    state = state.copyWith(status: AdminUserStatus.initial, errorMessage: null, actionSucceeded: false);
   }
 }

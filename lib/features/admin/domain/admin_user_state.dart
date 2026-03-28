@@ -1,5 +1,4 @@
 import '../domain/admin_user_model.dart';
-import '../../profile/domain/profile_state.dart'; // Just to re-use ProfileStatus, or I can define a local enum
 
 enum AdminUserStatus { initial, loading, success, error }
 
@@ -12,6 +11,9 @@ class AdminUserState {
   final int totalUsers;
   final int activeUsers;
   final int suspendedUsers;
+  /// Set to true ONLY after a user-initiated mutation (suspend/reactivate).
+  /// Regular fetches must never set this to true.
+  final bool actionSucceeded;
 
   const AdminUserState({
     this.status = AdminUserStatus.initial,
@@ -22,6 +24,7 @@ class AdminUserState {
     this.totalUsers = 0,
     this.activeUsers = 0,
     this.suspendedUsers = 0,
+    this.actionSucceeded = false,
   });
 
   AdminUserState copyWith({
@@ -33,6 +36,7 @@ class AdminUserState {
     int? totalUsers,
     int? activeUsers,
     int? suspendedUsers,
+    bool? actionSucceeded,
   }) {
     return AdminUserState(
       status: status ?? this.status,
@@ -43,6 +47,7 @@ class AdminUserState {
       totalUsers: totalUsers ?? this.totalUsers,
       activeUsers: activeUsers ?? this.activeUsers,
       suspendedUsers: suspendedUsers ?? this.suspendedUsers,
+      actionSucceeded: actionSucceeded ?? this.actionSucceeded,
     );
   }
 }
