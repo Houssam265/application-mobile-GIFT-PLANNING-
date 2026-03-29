@@ -39,6 +39,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
 
   DateTime? _eventDate;
   String? _listOwnerId;
+  bool _isListArchived = false;
 
   bool get _isEditing => _existingContribution != null;
   bool get _canModifyContribution {
@@ -107,7 +108,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
 
     final listRes = await Supabase.instance.client
         .from('listes')
-        .select('date_evenement, proprietaire_id')
+        .select('date_evenement, proprietaire_id, statut')
         .eq('id', product.listeId)
         .maybeSingle();
 
@@ -129,6 +130,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
       }
       listOwnerId =
           listRes['proprietaire_id'] as String?;
+      _isListArchived = (listRes['statut'] as String?) == 'ARCHIVEE';
     }
 
     _amountController.text =
@@ -281,6 +283,24 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_isListArchived)
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Liste archivée',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Les contributions sont désactivées. Réactivation nécessaire par le propriétaire.',
+                        style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_isListArchived) const SizedBox(height: 16),
               AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +411,7 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
                         const SizedBox(height: 12),
                         AppButton(
                           label: _isEditing ? 'Mettre à jour' : 'Promettre',
-                          onPressed: formState.status ==
+                          onPressed: _isListArchived || formState.status ==
                                       ContributionFormStatus.loading ||
                                   remaining < 1
                               ? null

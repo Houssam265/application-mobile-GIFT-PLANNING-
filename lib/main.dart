@@ -147,6 +147,7 @@ Future<void> _initOneSignal() async {
             pathParameters: {'id': listId},
           );
         case 'contribution_new':
+        case 'product_added':
         case 'product_fully_funded':
         case 'product_funding_dropped':
           if (productId != null && productId.isNotEmpty) {

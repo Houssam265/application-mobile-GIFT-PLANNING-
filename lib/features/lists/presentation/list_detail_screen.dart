@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_links.dart';
 import '../../../core/router/app_router.dart';
@@ -35,6 +36,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
   Map<String, dynamic>? _listData;
   bool _isLoading = true;
   bool _isSaving = false;
+  String? _myRole;
 
   // État édition
   bool _isEditing = false;
@@ -114,6 +116,18 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       final visibilityStr =
           data['visibilite_contributions'] as String? ?? 'PUBLIC';
       _visibility = visibilityFromDb(visibilityStr);
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) {
+        final part = await Supabase.instance.client
+            .from('participations')
+            .select('role')
+            .eq('liste_id', widget.listId)
+            .eq('utilisateur_id', userId)
+            .maybeSingle();
+        _myRole = part?['role'] as String?;
+      } else {
+        _myRole = null;
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -427,6 +441,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     final daysRemaining = dateEvenement
         .difference(DateTime(now.year, now.month, now.day))
         .inDays;
+    final isApprovedMember = _isOwner || (_myRole == 'INVITE');
 
     return Scaffold(
       appBar: AppBar(
@@ -508,7 +523,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
               const SizedBox(height: 16),
               _buildFundingCard(theme),
               const SizedBox(height: 16),
-              _buildProductsCard(theme, isArchived),
+              if (isApprovedMember) _buildProductsCard(theme, isArchived),
               if (_isOwner) ...[
                 const SizedBox(height: 12),
                 _buildOwnerSuggestionsButton(),
@@ -584,7 +599,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                 fit: BoxFit.cover,
               ),
             ),
-          if (_isOwner && !isArchived) ...[
+          if (_isOwner && !isArchived && _isEditing) ...[
             const SizedBox(height: 8),
             AppButton(
               label: coverUrl == null && _newCoverBytes == null
@@ -880,6 +895,47 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                                   productCategorieFromDb(cat).label,
                                   style: theme.textTheme.bodySmall,
                                 ),
+                              if ((p['lien_url'] as String?) != null && (p['lien_url'] as String).isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.link_outlined, size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () async {
+                                          final url = p['lien_url'] as String;
+                                          final uri = Uri.tryParse(url);
+                                          if (uri != null) {
+                                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                          }
+                                        },
+                                        child: Text(
+                                          (p['lien_url'] as String),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Copier le lien',
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      onPressed: () {
+                                        final url = p['lien_url'] as String?;
+                                        if (url != null && url.isNotEmpty) {
+                                          Clipboard.setData(ClipboardData(text: url));
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Lien du produit copié.')),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 8),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(4),

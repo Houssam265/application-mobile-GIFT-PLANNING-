@@ -42,6 +42,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   bool _loading = true;
   String _searchQuery = '';
   RealtimeChannel? _participationsChannel;
+  RealtimeChannel? _listsOwnerChannel;
+  Timer? _reloadTimer;
+
+  void _queueRefresh() {
+    _reloadTimer?.cancel();
+    _reloadTimer = Timer(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      _fetchDashboardData();
+    });
+  }
 
   @override
   void initState() {
@@ -57,7 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       _participationsChannel = Supabase.instance.client
           .channel('participations_user_${user.id}')
           .onPostgresChanges(
-            event: PostgresChangeEvent.all,
+            event: PostgresChangeEvent.update,
             schema: 'public',
             table: 'participations',
             filter: PostgresChangeFilter(
@@ -66,7 +76,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               value: user.id,
             ),
             callback: (payload) {
-              _fetchDashboardData();
+              _queueRefresh();
+            },
+          )
+          .subscribe();
+      _listsOwnerChannel = Supabase.instance.client
+          .channel('listes_owner_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'listes',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'proprietaire_id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              _queueRefresh();
             },
           )
           .subscribe();
@@ -78,6 +104,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     _tabController.dispose();
     _searchController.dispose();
     _participationsChannel?.unsubscribe();
+    _listsOwnerChannel?.unsubscribe();
+    _reloadTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -85,7 +113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _fetchDashboardData();
+      _queueRefresh();
     }
   }
 
@@ -93,7 +121,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
-    setState(() => _loading = true);
+    if (_loading) {
+      setState(() => _loading = true);
+    }
 
     unawaited(ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount());
 

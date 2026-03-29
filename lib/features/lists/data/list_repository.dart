@@ -233,6 +233,20 @@ class ListRepository {
         })
         .eq('id', id)
         .eq('proprietaire_id', user.id);
+    try {
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'list_reactivated_notify',
+          'listId': id,
+        },
+      );
+    } catch (e) {
+      debugPrint('list_reactivated_notify push ignorée: $e');
+    }
   }
 
   /// Supprime définitivement une liste archivée (cascade sur produits, contributions, ...).
