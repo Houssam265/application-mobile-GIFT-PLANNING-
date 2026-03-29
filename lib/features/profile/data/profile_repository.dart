@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileRepository {
@@ -34,14 +34,14 @@ class ProfileRepository {
     );
   }
 
-  Future<String> uploadAvatar(File imageFile, String userId) async {
+  Future<String> uploadAvatar(Uint8List imageBytes, String userId) async {
     // Generate unique name
     final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
     
     // Upload standard file to storage
-    await _supabase.storage.from('avatars').upload(
+    await _supabase.storage.from('avatars').uploadBinary(
           fileName,
-          imageFile,
+          imageBytes,
           fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
         );
         

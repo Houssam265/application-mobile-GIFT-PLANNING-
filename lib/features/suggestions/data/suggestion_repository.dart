@@ -14,17 +14,14 @@ class SuggestionRepository {
 
   Future<void> _invokePush(Map<String, dynamic> body) async {
     try {
-      await Supabase.instance.client.auth.refreshSession();
-      final token =
-          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      if (token.isEmpty) return;
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
       await _client.functions.invoke(
         'participant-notifications',
         body: body,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'apikey': SupabaseConstants.supabaseAnonKey,
-        },
       );
     } catch (e) {
       debugPrint('participant-notifications: $e');
@@ -42,6 +39,15 @@ class SuggestionRepository {
     String? lienUrl,
     ProductCategorie? categorie,
   }) async {
+    final listRow = await _client
+        .from('listes')
+        .select('statut')
+        .eq('id', listeId)
+        .maybeSingle();
+    if ((listRow?['statut'] as String?) == 'ARCHIVEE') {
+      throw Exception('Cette liste est archivée. Suggestions désactivées.');
+    }
+
     String? imageUrl;
     if (imageBytes != null && imageFileName != null) {
       imageUrl = await _storage.upload(
@@ -123,7 +129,7 @@ class SuggestionRepository {
 
     final nowIso = DateTime.now().toIso8601String();
 
-    await _client.from('produits').insert({
+    final insertedProduct = await _client.from('produits').insert({
       'liste_id': suggestion['liste_id'],
       'nom': suggestion['nom_produit'],
       'description': suggestion['description'],
@@ -132,7 +138,7 @@ class SuggestionRepository {
       'lien_url': suggestion['lien_url'],
       'categorie': suggestion['categorie'],
       'statut_financement': StatutFinancement.nonFinance.dbValue,
-    });
+    }).select('id').single();
 
     await _client.from('suggestions').update({
       'statut': SuggestionStatus.validee.dbValue,
@@ -156,6 +162,53 @@ class SuggestionRepository {
       'listId': listeId,
       'suggestionId': suggestionId,
     });
+
+    try {
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'product_added_notify_all',
+          'listId': listeId,
+          'productId': insertedProduct['id'] as String,
+        },
+      );
+    } catch (_) {
+      try {
+        final listRow = await _client
+            .from('listes')
+            .select('titre, proprietaire_id')
+            .eq('id', listeId)
+            .maybeSingle();
+        final listTitle = (listRow?['titre'] as String?) ?? 'Liste';
+        final ownerId = listRow?['proprietaire_id'] as String?;
+
+        final parts = await _client
+            .from('participations')
+            .select('utilisateur_id')
+            .eq('liste_id', listeId);
+        final userIds = <String>{
+          ...(parts as List)
+              .map((e) => (e as Map<String, dynamic>)['utilisateur_id'] as String)
+        };
+        if (ownerId != null && ownerId.isNotEmpty) {
+          userIds.add(ownerId);
+        }
+
+        final nowIso = DateTime.now().toIso8601String();
+        for (final uid in userIds) {
+          await _client.from('notifications').insert({
+            'utilisateur_id': uid,
+            'type': 'SUGGESTION',
+            'message': '« ${nomProduit} » a été ajouté à « $listTitle ».',
+            'est_lue': false,
+            'date_envoi': nowIso,
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> refuseSuggestion({

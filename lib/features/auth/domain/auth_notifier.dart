@@ -22,9 +22,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _repository.register(email: email, password: password);
       state = state.copyWith(status: AuthStatus.success);
     } catch (e) {
+      String errorMessage = e.toString();
+      // On intercepte l'erreur 500 propre à Supabase quand le trigger SQL
+      // plante à cause d'un 'niba3antiz@gmail.com' (ou autre) qui existe DÉJÀ.
+      if (errorMessage.contains('Database error saving new user') || 
+          errorMessage.toLowerCase().contains('user already registered') ||
+          errorMessage.contains('23505')) {
+        errorMessage = 'Un compte existe déjà avec cette adresse email.';
+      }
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: errorMessage,
       );
     }
   }

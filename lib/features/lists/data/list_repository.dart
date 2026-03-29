@@ -194,24 +194,19 @@ class ListRepository {
         .eq('proprietaire_id', user.id);
 
     try {
-      await Supabase.instance.client.auth.refreshSession();
-      final token =
-          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      if (token.isNotEmpty) {
-        await _client.functions.invoke(
-          'participant-notifications',
-          body: {
-            'action': 'list_archived_notify',
-            'listId': id,
-          },
-          headers: {
-            'Authorization': 'Bearer $token',
-            'apikey': SupabaseConstants.supabaseAnonKey,
-          },
-        );
-      }
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'list_archived_notify',
+          'listId': id,
+        },
+      );
     } catch (e) {
-      debugPrint('list_archived_notify: $e');
+      debugPrint('list_archived_notify push ignorée: $e');
     }
   }
 
@@ -238,6 +233,20 @@ class ListRepository {
         })
         .eq('id', id)
         .eq('proprietaire_id', user.id);
+    try {
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'list_reactivated_notify',
+          'listId': id,
+        },
+      );
+    } catch (e) {
+      debugPrint('list_reactivated_notify push ignorée: $e');
+    }
   }
 
   /// Supprime définitivement une liste archivée (cascade sur produits, contributions, ...).
@@ -298,36 +307,68 @@ class ListRepository {
       throw Exception('Utilisateur non connecté.');
     }
 
-    // Force refresh de la session
-    await Supabase.instance.client.auth.refreshSession();
-    final session = Supabase.instance.client.auth.currentSession;
-    final token = session?.accessToken ?? '';
+    // Vérifier si déjà membre
+    final existing = await _client
+        .from('participations')
+        .select('id, role')
+        .eq('liste_id', id)
+        .eq('utilisateur_id', user.id)
+        .maybeSingle();
 
-    if (token.isEmpty) {
-      throw Exception('Session expirée. Merci de vous reconnecter.');
+    if (existing != null) {
+      final role = existing['role'] as String? ?? '';
+      if (role == 'INVITE' || role == 'PROPRIETAIRE') {
+        return 'ALREADY_MEMBER';
+      }
+      if (role == 'EN_ATTENTE') {
+        return 'PENDING';
+      }
     }
 
-    if (token.split('.').length != 3) {
-      await Supabase.instance.client.auth.signOut();
-      throw Exception('Token invalide. Merci de vous reconnecter.');
+    // 1. Créer la demande de participation dans la base de données (100% fiable)
+    await _client.from('participations').upsert({
+      'liste_id': id,
+      'utilisateur_id': user.id,
+      'role': 'EN_ATTENTE',
+    }, onConflict: 'liste_id,utilisateur_id');
+
+    try {
+      final listRow = await _client
+          .from('listes')
+          .select('proprietaire_id, titre')
+          .eq('id', id)
+          .maybeSingle();
+      final ownerId = listRow?['proprietaire_id'] as String?;
+      final listTitle = listRow?['titre'] as String? ?? 'Liste';
+      if (ownerId != null && ownerId.isNotEmpty) {
+        await _client.from('notifications').insert({
+          'utilisateur_id': ownerId,
+          'type': 'ADHESION',
+          'message': 'Nouvelle demande pour « $listTitle ».',
+          'est_lue': false,
+          'date_envoi': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (_) {}
+
+    // 2. Envoyer la notification push
+    try {
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
+      await _client.functions.invoke(
+        'participant-notifications',
+        body: {
+          'action': 'join_request',
+          'listId': id,
+        },
+      );
+    } catch (e) {
+      debugPrint('join_request push ignorée: $e');
     }
 
-    final res = await _client.functions.invoke(
-      'participant-notifications',
-      body: {
-        'action': 'join_request',
-        'listId': id,
-      },
-      headers: {
-        'Authorization': 'Bearer $token',
-        'apikey': SupabaseConstants.supabaseAnonKey,
-      },
-    );
-
-    final data = res.data;
-    if (data is Map && data['ok'] == true) {
-      return (data['status']?.toString() ?? 'PENDING');
-    }
-    throw Exception((data is Map ? data['error'] : null) ?? 'Erreur lors de la demande.');
+    return 'PENDING';
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,19 +19,7 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
   List<Map<String, dynamic>> _pendingMembers = [];
   List<Map<String, dynamic>> _activeMembers = [];
 
-  Future<String> _getValidAccessToken() async {
-    var session = Supabase.instance.client.auth.currentSession;
-    var token = session?.accessToken ?? '';
-    if (token.isEmpty) {
-      final refresh = await Supabase.instance.client.auth.refreshSession();
-      session = refresh.session;
-      token = session?.accessToken ?? '';
-    }
-    if (token.isEmpty) {
-      throw Exception('Session expirée. Merci de vous reconnecter.');
-    }
-    return token;
-  }
+
 
   @override
   void initState() {
@@ -69,25 +58,62 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _acceptMember(String participationId) async {
     try {
-      final token = await _getValidAccessToken();
-      await Supabase.instance.client.functions.invoke(
-        'participant-notifications',
-        body: {
-          'action': 'join_accepted',
-          'listId': widget.listId,
-          'participationId': participationId,
-        },
-        headers: {
-          'apikey': SupabaseConstants.supabaseAnonKey,
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
+      // 1. Direct DB update (garantit le fonctionnement de l'appli)
+      await Supabase.instance.client
+          .from('participations')
+          .update({'role': 'INVITE'})
+          .eq('id', participationId);
+
+      try {
+        final target = await Supabase.instance.client
+            .from('participations')
+            .select('utilisateur_id')
+            .eq('id', participationId)
+            .maybeSingle();
+        final targetUserId = target?['utilisateur_id'] as String?;
+        final listRow = await Supabase.instance.client
+            .from('listes')
+            .select('titre')
+            .eq('id', widget.listId)
+            .maybeSingle();
+        final listTitle = listRow?['titre'] as String? ?? 'Liste';
+        if (targetUserId != null && targetUserId.isNotEmpty) {
+          await Supabase.instance.client.from('notifications').insert({
+            'utilisateur_id': targetUserId,
+            'type': 'ADHESION',
+            'message': 'Votre demande pour « $listTitle » a été acceptée.',
+            'est_lue': false,
+            'date_envoi': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (_) {}
+
+      // 2. Notif Push
+      try {
+        try {
+          await Supabase.instance.client.auth.refreshSession();
+        } catch (_) {}
+        final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
+        await Supabase.instance.client.functions.invoke(
+          'participant-notifications',
+          body: {
+            'action': 'join_accepted',
+            'listId': widget.listId,
+            'participationId': participationId,
+          },
+        );
+      } catch (e) {
+        debugPrint('Push ignorée (accept): $e');
+      }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Participant accepté.')),
       );
       _fetchMembers();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: $e')),
       );
@@ -96,25 +122,67 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _refuseMember(String participationId) async {
     try {
-      final token = await _getValidAccessToken();
-      await Supabase.instance.client.functions.invoke(
-        'participant-notifications',
-        body: {
-          'action': 'join_refused',
-          'listId': widget.listId,
-          'participationId': participationId,
-        },
-        headers: {
-          'apikey': SupabaseConstants.supabaseAnonKey,
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
+      String? targetUserId;
+      String listTitle = 'Liste';
+      try {
+        final target = await Supabase.instance.client
+            .from('participations')
+            .select('utilisateur_id, liste_id')
+            .eq('id', participationId)
+            .maybeSingle();
+        targetUserId = target?['utilisateur_id'] as String?;
+        final listRow = await Supabase.instance.client
+            .from('listes')
+            .select('titre')
+            .eq('id', widget.listId)
+            .maybeSingle();
+        listTitle = listRow?['titre'] as String? ?? 'Liste';
+      } catch (_) {}
+
+      // 1. Direct DB suppression
+      await Supabase.instance.client
+          .from('participations')
+          .delete()
+          .eq('id', participationId);
+
+      try {
+        if (targetUserId != null && targetUserId.isNotEmpty) {
+          await Supabase.instance.client.from('notifications').insert({
+            'utilisateur_id': targetUserId,
+            'type': 'ADHESION',
+            'message': 'Votre demande pour « $listTitle » a été refusée.',
+            'est_lue': false,
+            'date_envoi': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (_) {}
+
+      // 2. Notif Push
+      try {
+        try {
+          await Supabase.instance.client.auth.refreshSession();
+        } catch (_) {}
+        final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
+        await Supabase.instance.client.functions.invoke(
+          'participant-notifications',
+          body: {
+            'action': 'join_refused',
+            'listId': widget.listId,
+            'participationId': participationId,
+          },
+        );
+      } catch (e) {
+        debugPrint('Push ignorée (refuse): $e');
+      }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Demande refusée.')),
       );
       _fetchMembers();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: $e')),
       );

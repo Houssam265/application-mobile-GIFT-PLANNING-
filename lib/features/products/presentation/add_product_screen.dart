@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_button.dart';
@@ -46,6 +47,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   Uint8List? _imagePreview;
 
   final _imagePicker = ImagePicker();
+  bool _isListArchived = false;
 
   @override
   void initState() {
@@ -58,6 +60,20 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     );
     _lienController = TextEditingController(text: p?.lienUrl ?? '');
     _categorie = p?.categorie;
+    _loadListMeta();
+  }
+
+  Future<void> _loadListMeta() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('listes')
+          .select('statut')
+          .eq('id', widget.listId)
+          .maybeSingle();
+      setState(() {
+        _isListArchived = (row?['statut'] as String?) == 'ARCHIVEE';
+      });
+    } catch (_) {}
   }
 
   @override
@@ -91,6 +107,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isListArchived) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Liste archivée — ajout/modification désactivés.')),
+      );
+      return;
+    }
 
     final prix = double.tryParse(
       _prixController.text.trim().replaceAll(',', '.'),
@@ -218,6 +240,21 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_isListArchived)
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Liste archivée', style: TextStyle(fontWeight: FontWeight.w600)),
+                        SizedBox(height: 8),
+                        Text(
+                          'Les modifications et ajouts de produits sont désactivés.',
+                          style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_isListArchived) const SizedBox(height: 16),
                 // ── Informations principales ─────────────────────────
                 AppCard(
                   child: Column(
@@ -391,7 +428,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     label: widget.isEditing
                         ? 'Enregistrer les modifications'
                         : 'Ajouter le produit',
-                    onPressed: _submit,
+                    onPressed: _isListArchived ? null : _submit,
                     icon: widget.isEditing
                         ? Icons.save_outlined
                         : Icons.add_circle_outline,

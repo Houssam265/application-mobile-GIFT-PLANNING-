@@ -11,17 +11,14 @@ class ContributionRepository {
 
   Future<void> _invokeContributionPush(Map<String, dynamic> body) async {
     try {
-      await Supabase.instance.client.auth.refreshSession();
-      final token =
-          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      if (token.isEmpty) return;
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
       await _client.functions.invoke(
         'participant-notifications',
         body: body,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'apikey': SupabaseConstants.supabaseAnonKey,
-        },
       );
     } catch (e) {
       debugPrint('participant-notifications (contribution): $e');
@@ -58,24 +55,8 @@ class ContributionRepository {
     final statut = (latest['statut_financement'] as String?) ?? 'NON_FINANCE';
     if (statut != StatutFinancement.finance.dbValue) return;
 
-    final list = await _client
-        .from('listes')
-        .select('proprietaire_id')
-        .eq('id', listId)
-        .maybeSingle();
-
-    final ownerId = list?['proprietaire_id'] as String?;
-    if (ownerId == null || ownerId.isEmpty) return;
-
-    await _client.from('notifications').insert({
-      'utilisateur_id': ownerId,
-      'type': 'FINANCEMENT',
-      'message': 'Le produit "$productName" est entièrement financé !',
-      'est_lue': false,
-    });
-
     await _invokeContributionPush({
-      'action': 'product_fully_funded',
+      'action': 'product_fully_funded_notify_all',
       'listId': listId,
       'productId': productId,
     });
@@ -252,6 +233,15 @@ class ContributionRepository {
     final productNameBefore = (productBefore?['nom'] as String?) ?? 'Produit';
     final effectiveListId = (productBefore?['liste_id'] as String?) ?? listId;
 
+    final listRow = await _client
+        .from('listes')
+        .select('statut')
+        .eq('id', effectiveListId)
+        .maybeSingle();
+    if ((listRow?['statut'] as String?) == 'ARCHIVEE') {
+      throw Exception('Cette liste est archivée. Contributions désactivées.');
+    }
+
     final existing = await getUserContributionForProduct(productId, userId);
 
     final maxAllowed = await _fetchMaxAllowedAmountForUser(
@@ -363,6 +353,15 @@ class ContributionRepository {
         StatutFinancement.finance.dbValue;
     final productNameBefore = (productBefore?['nom'] as String?) ?? 'Produit';
     final listIdForNotif = (productBefore?['liste_id'] as String?) ?? listId;
+
+    final listRow = await _client
+        .from('listes')
+        .select('statut')
+        .eq('id', listIdForNotif)
+        .maybeSingle();
+    if ((listRow?['statut'] as String?) == 'ARCHIVEE') {
+      throw Exception('Cette liste est archivée. Contributions désactivées.');
+    }
 
     final response = await _client
         .from('contributions')

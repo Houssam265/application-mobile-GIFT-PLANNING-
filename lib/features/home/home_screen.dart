@@ -32,7 +32,7 @@ bool _listMatchesSearch(Map<String, dynamic> list, String query) {
   return parts.every((p) => p.isEmpty || haystack.contains(p));
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -41,29 +41,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   List<Map<String, dynamic>> _archivedLists = [];
   bool _loading = true;
   String _searchQuery = '';
+  RealtimeChannel? _participationsChannel;
+  RealtimeChannel? _listsOwnerChannel;
+  Timer? _reloadTimer;
+
+  void _queueRefresh() {
+    _reloadTimer?.cancel();
+    _reloadTimer = Timer(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      _fetchDashboardData();
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
     _fetchDashboardData();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _participationsChannel = Supabase.instance.client
+          .channel('participations_user_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'participations',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'utilisateur_id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              _queueRefresh();
+            },
+          )
+          .subscribe();
+      _listsOwnerChannel = Supabase.instance.client
+          .channel('listes_owner_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'listes',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'proprietaire_id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              _queueRefresh();
+            },
+          )
+          .subscribe();
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _participationsChannel?.unsubscribe();
+    _listsOwnerChannel?.unsubscribe();
+    _reloadTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _queueRefresh();
+    }
   }
 
   Future<void> _fetchDashboardData() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
-    setState(() => _loading = true);
+    if (_loading) {
+      setState(() => _loading = true);
+    }
 
     unawaited(ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount());
 

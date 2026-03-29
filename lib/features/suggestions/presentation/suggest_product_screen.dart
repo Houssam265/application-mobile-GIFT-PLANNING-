@@ -36,6 +36,7 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
   ProductCategorie? _categorie;
   XFile? _imageFile;
   Uint8List? _imagePreview;
+  bool _isListArchived = false;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
     _descriptionController = TextEditingController();
     _prixController = TextEditingController();
     _lienController = TextEditingController();
+    _loadListMeta();
   }
 
   @override
@@ -53,6 +55,19 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
     _prixController.dispose();
     _lienController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadListMeta() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('listes')
+          .select('statut')
+          .eq('id', widget.listId)
+          .maybeSingle();
+      setState(() {
+        _isListArchived = (row?['statut'] as String?) == 'ARCHIVEE';
+      });
+    } catch (_) {}
   }
 
   Future<void> _pickImage() async {
@@ -77,6 +92,12 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isListArchived) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Liste archivée — suggestions désactivées.')),
+      );
+      return;
+    }
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
@@ -143,6 +164,21 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_isListArchived)
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Liste archivée', style: TextStyle(fontWeight: FontWeight.w600)),
+                        SizedBox(height: 8),
+                        Text(
+                          'Les suggestions sont désactivées. Réactivation nécessaire par le propriétaire.',
+                          style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_isListArchived) const SizedBox(height: 16),
                 AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,7 +310,7 @@ class _SuggestProductScreenState extends ConsumerState<SuggestProductScreen> {
                   AppButton(
                     label: 'Envoyer la suggestion',
                     icon: Icons.send_outlined,
-                    onPressed: _submit,
+                    onPressed: _isListArchived ? null : _submit,
                   ),
               ],
             ),

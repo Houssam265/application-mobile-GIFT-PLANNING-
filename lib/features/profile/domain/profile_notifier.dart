@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/profile_repository.dart';
@@ -17,12 +17,15 @@ final profileNotifierProvider =
 class ProfileNotifier extends StateNotifier<ProfileState> {
   final ProfileRepository _repository;
   StreamSubscription<AuthState>? _authSub;
+  RealtimeChannel? _profileChannel;
 
   ProfileNotifier(this._repository) : super(const ProfileState()) {
     _initData();
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedOut) {
         state = const ProfileState();
+        _profileChannel?.unsubscribe();
+        _profileChannel = null;
       } else if (data.event == AuthChangeEvent.signedIn ||
                  data.event == AuthChangeEvent.userUpdated) {
         _initData();
@@ -32,13 +35,44 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
   @override
   void dispose() {
+    _profileChannel?.unsubscribe();
     _authSub?.cancel();
     super.dispose();
+  }
+
+  void _subscribeToProfile(String userId) {
+    if (_profileChannel != null) return; // Déjà abonné
+    _profileChannel = Supabase.instance.client
+        .channel('public:utilisateurs:profile_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'utilisateurs',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) {
+            final newRow = payload.newRecord;
+            final dbName = newRow['nom'] as String?;
+            final dbAvatar = newRow['photo_profil_url'] as String?;
+            final dbIsAdmin = newRow['est_administrateur'] as bool? ?? state.isAdmin;
+
+            state = state.copyWith(
+              displayName: (dbName != null && dbName.isNotEmpty) ? dbName : state.displayName,
+              avatarUrl: (dbAvatar != null && dbAvatar.isNotEmpty) ? dbAvatar : state.avatarUrl,
+              isAdmin: dbIsAdmin,
+            );
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _initData() async {
     final user = _repository.currentUser;
     if (user != null) {
+      _subscribeToProfile(user.id);
       try {
         final dbUser = await _repository.fetchUserProfile(user.id);
         if (dbUser != null) {
@@ -94,13 +128,13 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     }
   }
 
-  Future<void> uploadAvatar(File imageFile) async {
+  Future<void> uploadAvatar(Uint8List imageBytes) async {
     state = state.copyWith(status: ProfileStatus.loading);
     try {
       final user = _repository.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
       
-      final publicUrl = await _repository.uploadAvatar(imageFile, user.id);
+      final publicUrl = await _repository.uploadAvatar(imageBytes, user.id);
       state = state.copyWith(status: ProfileStatus.success, avatarUrl: publicUrl);
     } catch (e) {
       state = state.copyWith(
