@@ -32,7 +32,7 @@ bool _listMatchesSearch(Map<String, dynamic> list, String query) {
   return parts.every((p) => p.isEmpty || haystack.contains(p));
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -41,22 +41,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   List<Map<String, dynamic>> _archivedLists = [];
   bool _loading = true;
   String _searchQuery = '';
+  RealtimeChannel? _participationsChannel;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
     _fetchDashboardData();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _participationsChannel = Supabase.instance.client
+          .channel('participations_user_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'participations',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'utilisateur_id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              _fetchDashboardData();
+            },
+          )
+          .subscribe();
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _participationsChannel?.unsubscribe();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchDashboardData();
+    }
   }
 
   Future<void> _fetchDashboardData() async {
