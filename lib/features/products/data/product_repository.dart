@@ -74,33 +74,34 @@ class ProductRepository {
       try {
         await Supabase.instance.client.auth.refreshSession();
       } catch (_) {}
+      // Exclude the owner — they added it themselves, no need to notify.
       await _client.functions.invoke(
         'participant-notifications',
         body: {
           'action': 'product_added_notify_all',
           'listId': listeId,
           'productId': product.id,
+          'excludeUserIds': [user.id],
         },
       );
     } catch (_) {
+      // Fallback: insert in-app notifications directly, excluding the owner.
       final title = (listRow['titre'] as String?) ?? 'Liste';
       final parts = await _client
           .from('participations')
           .select('utilisateur_id')
           .eq('liste_id', listeId);
+      // Only participants (not the owner who added the product)
       final users = <String>{
         ...(parts as List)
             .map((e) => (e as Map<String, dynamic>)['utilisateur_id'] as String)
       };
-      final ownerId = listRow['proprietaire_id'] as String?;
-      if (ownerId != null && ownerId.isNotEmpty) {
-        users.add(ownerId);
-      }
+      users.remove(user.id); // ensure owner is excluded
       final nowIso = DateTime.now().toIso8601String();
       for (final uid in users) {
         await _client.from('notifications').insert({
           'utilisateur_id': uid,
-          'type': 'SUGGESTION',
+          'type': 'PRODUIT',
           'message': '« ${product.nom} » a été ajouté à « $title ».',
           'est_lue': false,
           'date_envoi': nowIso,

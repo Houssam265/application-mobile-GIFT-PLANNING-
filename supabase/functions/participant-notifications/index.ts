@@ -127,6 +127,10 @@ Deno.serve(async (req) => {
     const participationId = body?.participationId as string | undefined
     const suggestionId = body?.suggestionId as string | undefined
     const productId = body?.productId as string | undefined
+    // Optional list of user IDs to exclude from 'product_added_notify_all'
+    const excludeUserIds: string[] = Array.isArray(body?.excludeUserIds)
+      ? (body.excludeUserIds as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
 
     if (!action) {
       return jsonResponse({ error: 'Missing action' }, 400)
@@ -134,7 +138,7 @@ Deno.serve(async (req) => {
 
     const requesterId = user.id
 
-    // ── Produit ajouté : notifier tous les participants ───────────────────────
+    // ── Produit ajouté : notifier tous les participants sauf les exclus ─────────
     if (action === 'product_added_notify_all') {
       if (!listId || !productId) {
         return jsonResponse({ error: 'Missing listId or productId' }, 400)
@@ -152,6 +156,7 @@ Deno.serve(async (req) => {
       if (L.statut === 'ARCHIVEE') {
         return jsonResponse({ error: 'List archived' }, 400)
       }
+      // Only the list owner may trigger this action
       if (L.proprietaire_id !== requesterId) {
         return jsonResponse({ error: 'Forbidden' }, 403)
       }
@@ -171,10 +176,19 @@ Deno.serve(async (req) => {
         .eq('liste_id', listId)
       if (pErr) return jsonResponse({ error: pErr.message }, 500)
 
+      // Build the recipient set: participants only (owner excluded by default, can be
+      // further filtered via excludeUserIds supplied by the caller).
+      const excludeSet = new Set<string>(excludeUserIds)
+
       const userIds = new Set(
-        ((parts ?? []) as { utilisateur_id: string }[]).map((p) => p.utilisateur_id),
+        ((parts ?? []) as { utilisateur_id: string }[])
+          .map((p) => p.utilisateur_id)
+          .filter((uid) => !excludeSet.has(uid)),
       )
-      userIds.add(L.proprietaire_id)
+      // Only add the owner if they are NOT in the exclude list
+      if (!excludeSet.has(L.proprietaire_id)) {
+        userIds.add(L.proprietaire_id)
+      }
 
       const message = `« ${P.nom} » a été ajouté à « ${L.titre} ».`
       const nowIso = new Date().toISOString()
@@ -182,7 +196,7 @@ Deno.serve(async (req) => {
       for (const uid of userIds) {
         await admin.from('notifications').insert({
           utilisateur_id: uid,
-          type: 'SUGGESTION',
+          type: 'PRODUIT',
           message,
           est_lue: false,
           date_envoi: nowIso,

@@ -163,6 +163,10 @@ class SuggestionRepository {
       'suggestionId': suggestionId,
     });
 
+    // Notify all participants except: the owner (who validated) and the suggester
+    // (who already received the dedicated "suggestion accepted" push above).
+    final currentUser = _client.auth.currentUser;
+    final ownerIdForExclusion = currentUser?.id ?? '';
     try {
       try {
         await Supabase.instance.client.auth.refreshSession();
@@ -173,6 +177,10 @@ class SuggestionRepository {
           'action': 'product_added_notify_all',
           'listId': listeId,
           'productId': insertedProduct['id'] as String,
+          'excludeUserIds': [
+            if (ownerIdForExclusion.isNotEmpty) ownerIdForExclusion,
+            if (suggesterId != null && suggesterId.isNotEmpty) suggesterId,
+          ],
         },
       );
     } catch (_) {
@@ -193,16 +201,16 @@ class SuggestionRepository {
           ...(parts as List)
               .map((e) => (e as Map<String, dynamic>)['utilisateur_id'] as String)
         };
-        if (ownerId != null && ownerId.isNotEmpty) {
-          userIds.add(ownerId);
-        }
+        // Exclude the owner (who accepted) and the suggester (already notified)
+        if (ownerId != null) userIds.remove(ownerId);
+        if (suggesterId != null) userIds.remove(suggesterId);
 
         final nowIso = DateTime.now().toIso8601String();
         for (final uid in userIds) {
           await _client.from('notifications').insert({
             'utilisateur_id': uid,
-            'type': 'SUGGESTION',
-            'message': '« ${nomProduit} » a été ajouté à « $listTitle ».',
+            'type': 'PRODUIT',
+            'message': '« $nomProduit » a été ajouté à « $listTitle ».',
             'est_lue': false,
             'date_envoi': nowIso,
           });
