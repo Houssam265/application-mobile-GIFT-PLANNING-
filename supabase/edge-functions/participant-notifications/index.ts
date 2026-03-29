@@ -33,7 +33,7 @@ function getRequiredEnv(name: string) {
   return v
 }
 
-async function sendOneSignalPush(args: {
+async function sendOneSignalPush(admin: ReturnType<typeof createClient>, args: {
   oneSignalAppId: string
   oneSignalRestApiKey: string
   externalUserId: string
@@ -41,19 +41,34 @@ async function sendOneSignalPush(args: {
   contents: string
   data: Record<string, Json>
 }) {
+  let playerId: string | null = null
+  try {
+    const { data: u } = await admin
+      .from('utilisateurs')
+      .select('player_id')
+      .eq('id', args.externalUserId)
+      .maybeSingle()
+    playerId = (u as { player_id?: string } | null)?.player_id ?? null
+  } catch {}
+
+  const body: Record<string, unknown> = {
+    app_id: args.oneSignalAppId,
+    include_external_user_ids: [args.externalUserId],
+    headings: { en: args.headings, fr: args.headings },
+    contents: { en: args.contents, fr: args.contents },
+    data: args.data,
+  }
+  if (playerId && playerId.length > 0) {
+    ;(body as { include_player_ids: string[] }).include_player_ids = [playerId]
+  }
+
   const res = await fetch('https://onesignal.com/api/v1/notifications', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Authorization: `Basic ${args.oneSignalRestApiKey}`,
     },
-    body: JSON.stringify({
-      app_id: args.oneSignalAppId,
-      include_external_user_ids: [args.externalUserId],
-      headings: { en: args.headings, fr: args.headings },
-      contents: { en: args.contents, fr: args.contents },
-      data: args.data,
-    }),
+    body: JSON.stringify(body),
   })
 
   const text = await res.text()
@@ -154,7 +169,7 @@ Deno.serve(async (req) => {
         .maybeSingle()
       const requesterName = (reqUser as { nom?: string } | null)?.nom ?? 'Un participant'
 
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: ownerId,
@@ -228,7 +243,7 @@ Deno.serve(async (req) => {
           ? `« ${s.nom_produit} » a été ajouté à « ${listTitle} ».`
           : `« ${s.nom_produit} » n'a pas été retenue pour « ${listTitle} ».`
 
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: suggesterId,
@@ -288,7 +303,7 @@ Deno.serve(async (req) => {
           est_lue: false,
           date_envoi: nowIso,
         })
-        await sendOneSignalPush({
+        await sendOneSignalPush(admin, {
           oneSignalAppId,
           oneSignalRestApiKey,
           externalUserId: uid,
@@ -421,7 +436,7 @@ Deno.serve(async (req) => {
           return jsonResponse({ error: 'Product not fully funded' }, 400)
         }
 
-        await sendOneSignalPush({
+        await sendOneSignalPush(admin, {
           oneSignalAppId,
           oneSignalRestApiKey,
           externalUserId: ownerId,
@@ -438,7 +453,7 @@ Deno.serve(async (req) => {
       }
 
       // product_funding_dropped
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: ownerId,
@@ -510,7 +525,7 @@ Deno.serve(async (req) => {
         date_envoi: new Date().toISOString(),
       })
 
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: ownerId,
@@ -562,7 +577,7 @@ Deno.serve(async (req) => {
         date_envoi: new Date().toISOString(),
       })
 
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: targetUserId,
@@ -590,7 +605,7 @@ Deno.serve(async (req) => {
         date_envoi: new Date().toISOString(),
       })
 
-      await sendOneSignalPush({
+      await sendOneSignalPush(admin, {
         oneSignalAppId,
         oneSignalRestApiKey,
         externalUserId: targetUserId,

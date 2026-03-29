@@ -64,6 +64,30 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
           .update({'role': 'INVITE'})
           .eq('id', participationId);
 
+      try {
+        final target = await Supabase.instance.client
+            .from('participations')
+            .select('utilisateur_id')
+            .eq('id', participationId)
+            .maybeSingle();
+        final targetUserId = target?['utilisateur_id'] as String?;
+        final listRow = await Supabase.instance.client
+            .from('listes')
+            .select('titre')
+            .eq('id', widget.listId)
+            .maybeSingle();
+        final listTitle = listRow?['titre'] as String? ?? 'Liste';
+        if (targetUserId != null && targetUserId.isNotEmpty) {
+          await Supabase.instance.client.from('notifications').insert({
+            'utilisateur_id': targetUserId,
+            'type': 'ADHESION',
+            'message': 'Votre demande pour « $listTitle » a été acceptée.',
+            'est_lue': false,
+            'date_envoi': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (_) {}
+
       // 2. Notif Push
       try {
         try {
@@ -98,11 +122,40 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
   Future<void> _refuseMember(String participationId) async {
     try {
+      String? targetUserId;
+      String listTitle = 'Liste';
+      try {
+        final target = await Supabase.instance.client
+            .from('participations')
+            .select('utilisateur_id, liste_id')
+            .eq('id', participationId)
+            .maybeSingle();
+        targetUserId = target?['utilisateur_id'] as String?;
+        final listRow = await Supabase.instance.client
+            .from('listes')
+            .select('titre')
+            .eq('id', widget.listId)
+            .maybeSingle();
+        listTitle = listRow?['titre'] as String? ?? 'Liste';
+      } catch (_) {}
+
       // 1. Direct DB suppression
       await Supabase.instance.client
           .from('participations')
           .delete()
           .eq('id', participationId);
+
+      try {
+        if (targetUserId != null && targetUserId.isNotEmpty) {
+          await Supabase.instance.client.from('notifications').insert({
+            'utilisateur_id': targetUserId,
+            'type': 'ADHESION',
+            'message': 'Votre demande pour « $listTitle » a été refusée.',
+            'est_lue': false,
+            'date_envoi': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (_) {}
 
       // 2. Notif Push
       try {

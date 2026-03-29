@@ -318,6 +318,25 @@ class ListRepository {
       'role': 'EN_ATTENTE',
     }, onConflict: 'liste_id,utilisateur_id');
 
+    try {
+      final listRow = await _client
+          .from('listes')
+          .select('proprietaire_id, titre')
+          .eq('id', id)
+          .maybeSingle();
+      final ownerId = listRow?['proprietaire_id'] as String?;
+      final listTitle = listRow?['titre'] as String? ?? 'Liste';
+      if (ownerId != null && ownerId.isNotEmpty) {
+        await _client.from('notifications').insert({
+          'utilisateur_id': ownerId,
+          'type': 'ADHESION',
+          'message': 'Nouvelle demande pour « $listTitle ».',
+          'est_lue': false,
+          'date_envoi': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (_) {}
+
     // 2. Envoyer la notification push
     try {
       try {
