@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
-
 class AuthRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
@@ -10,9 +8,6 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Contournement bug Supabase Web: on force une URL de prod explicite
-    // Si on passe null, le SDK Flutter injecte automatiquement "http://localhost:..." 
-    // ce qui fait crasher le serveur (erreur 500) à cause des wildcards.
     final redirectTo = kIsWeb ? 'https://giftplan.rf.gd' : 'giftplan://login-callback/';
     final response = await _client.auth.signUp(
       email: email,
@@ -39,17 +34,18 @@ class AuthRepository {
     }
   }
 
-  /// Doit être autorisé dans Supabase Dashboard → Auth → URL de redirection :
-  /// - `giftplan://reset-password`
   Future<void> sendPasswordResetEmail(String email) async {
-    // Contournement bug Supabase: l'API Crash (500) si on passe null car le SDK Flutter injecte 
-    // le localhost. On force avec une URL du site par défaut explicitly (giftplan.rf.gd).
-    final redirectTo = kIsWeb
-        ? 'https://giftplan.rf.gd/reset-password'
-        : 'giftplan://reset-password';
-    await _client.auth.resetPasswordForEmail(
-      email,
-      redirectTo: redirectTo,
+    await _client.auth.resetPasswordForEmail(email);
+  }
+
+  Future<void> verifyRecoveryCode({
+    required String email,
+    required String code,
+  }) async {
+    await _client.auth.verifyOTP(
+      email: email,
+      token: code,
+      type: OtpType.recovery,
     );
   }
 
@@ -60,7 +56,6 @@ class AuthRepository {
   }
 
   Future<void> signInWithGoogle() async {
-    // Redirige vers la page web Google, puis revient sur l'app mobile via le deep link
     final redirectTo = kIsWeb ? '${Uri.base.origin}/' : 'giftplan://login-callback/';
     await _client.auth.signInWithOAuth(
       OAuthProvider.google,
@@ -69,7 +64,6 @@ class AuthRepository {
   }
 
   Future<void> signInWithFacebook() async {
-    // Redirige vers la page web Facebook, puis revient sur l'app mobile via le deep link
     final redirectTo = kIsWeb ? '${Uri.base.origin}/' : 'giftplan://login-callback/';
     await _client.auth.signInWithOAuth(
       OAuthProvider.facebook,

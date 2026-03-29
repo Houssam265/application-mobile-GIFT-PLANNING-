@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../domain/auth_notifier.dart';
 import '../domain/auth_state.dart';
 
@@ -14,6 +15,15 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final email = GoRouterState.of(context).uri.queryParameters['email'] ?? '';
+    if (email.isNotEmpty && _emailController.text != email) {
+      _emailController.text = email;
+    }
+  }
 
   @override
   void dispose() {
@@ -77,27 +87,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.status == AuthStatus.success) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Email envoyé ✉️', style: TextStyle(fontWeight: FontWeight.bold)),
-            content: const Text(
-              'Si ce compte existe, un lien de réinitialisation a été envoyé.\n'
-              'Veuillez vérifier votre boîte de réception.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // fermer dialog
-                  context.go('/login');   // retour login
-                },
-                child: const Text('Compris', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E86AB))),
-              ),
-            ],
-          ),
-        );
+        final email = Uri.encodeComponent(_emailController.text.trim());
+        ref.read(authNotifierProvider.notifier).reset();
+        context.go('/reset-password?email=$email');
       }
       if (next.status == AuthStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -108,6 +100,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
+        ref.read(authNotifierProvider.notifier).reset();
       }
     });
 
@@ -131,7 +124,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Icône "Password Recovery" au lieu du logo complet
                   Container(
                     height: 100,
                     width: 100,
@@ -145,9 +137,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       color: Color(0xFF2E86AB),
                     ),
                   ),
-
                   const SizedBox(height: 32),
-
                   Container(
                     padding: const EdgeInsets.all(28),
                     decoration: BoxDecoration(
@@ -175,7 +165,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Saisissez l\'adresse email associée à votre compte, et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+                          'Entrez votre adresse email. Un code de vérification vous sera envoyé, puis vous pourrez choisir un nouveau mot de passe dans l\'application.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey.shade500,
@@ -183,8 +173,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           ),
                         ),
                         const SizedBox(height: 32),
-
-                        // Input Email
                         _buildTextField(
                           controller: _emailController,
                           labelText: 'Adresse email',
@@ -198,10 +186,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             return null;
                           },
                         ),
-
                         const SizedBox(height: 32),
-
-                        // Bouton d'envoi
                         authState.status == AuthStatus.loading
                             ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E86AB)))
                             : Container(
@@ -231,7 +216,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                                     ),
                                   ),
                                   child: const Text(
-                                    'Réinitialiser',
+                                    'Envoyer le code',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
