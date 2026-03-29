@@ -20,10 +20,15 @@ type Json =
   | Json[]
   | { [key: string]: Json }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function jsonResponse(body: Json, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
 
@@ -68,6 +73,11 @@ async function sendOneSignalPush(args: {
 }
 
 Deno.serve(async (req) => {
+  // Gestion CORS pour les requêtes du navigateur Web
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     if (req.method !== 'POST') {
       return jsonResponse({ error: 'Method not allowed' }, 405)

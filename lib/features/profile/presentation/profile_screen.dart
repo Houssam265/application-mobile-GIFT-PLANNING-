@@ -1,4 +1,4 @@
-import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -55,8 +55,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
 
       if (image != null) {
+        final bytes = await image.readAsBytes();
         if (!mounted) return;
-        ref.read(profileNotifierProvider.notifier).uploadAvatar(File(image.path));
+        ref.read(profileNotifierProvider.notifier).uploadAvatar(bytes);
       }
     } catch (e) {
       if (!mounted) return;

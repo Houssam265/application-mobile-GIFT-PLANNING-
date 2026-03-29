@@ -14,17 +14,14 @@ class SuggestionRepository {
 
   Future<void> _invokePush(Map<String, dynamic> body) async {
     try {
-      await Supabase.instance.client.auth.refreshSession();
-      final token =
-          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-      if (token.isEmpty) return;
+      try {
+        await Supabase.instance.client.auth.refreshSession();
+      } catch (_) {}
+      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+
       await _client.functions.invoke(
         'participant-notifications',
         body: body,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'apikey': SupabaseConstants.supabaseAnonKey,
-        },
       );
     } catch (e) {
       debugPrint('participant-notifications: $e');
