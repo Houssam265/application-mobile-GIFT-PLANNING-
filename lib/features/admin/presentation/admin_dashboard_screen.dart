@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 
 import '../../profile/domain/profile_notifier.dart';
+import '../../profile/domain/profile_state.dart';
 import '../domain/admin_dashboard_notifier.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -30,6 +31,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final profileState = ref.watch(profileNotifierProvider);
     final dashboardState = ref.watch(adminDashboardNotifierProvider);
     
+    // Attendre le chargement complet des informations de profil
+    if (profileState.status == ProfileStatus.initial || profileState.status == ProfileStatus.loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     // Quick security check
     if (!profileState.isAdmin) {
       return Scaffold(
