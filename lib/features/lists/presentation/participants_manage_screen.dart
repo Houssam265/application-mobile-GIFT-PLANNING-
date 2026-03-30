@@ -1,8 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/constants/supabase_constants.dart';
+import '../../../core/notifications/notification_insert.dart';
 import '../../../core/widgets/loading_widget.dart';
 
 class ParticipantsManageScreen extends StatefulWidget {
@@ -78,13 +77,14 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
             .maybeSingle();
         final listTitle = listRow?['titre'] as String? ?? 'Liste';
         if (targetUserId != null && targetUserId.isNotEmpty) {
-          await Supabase.instance.client.from('notifications').insert({
-            'utilisateur_id': targetUserId,
-            'type': 'ADHESION',
-            'message': 'Votre demande pour « $listTitle » a été acceptée.',
-            'est_lue': false,
-            'date_envoi': DateTime.now().toIso8601String(),
-          });
+          await insertInAppNotification(
+            userId: targetUserId,
+            type: 'ADHESION',
+            message: 'Votre demande pour "$listTitle" a ete acceptee.',
+            action: 'join_accepted',
+            listId: widget.listId,
+            sentAt: DateTime.now(),
+          );
         }
       } catch (_) {}
 
@@ -93,8 +93,6 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
         try {
           await Supabase.instance.client.auth.refreshSession();
         } catch (_) {}
-        final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-
         await Supabase.instance.client.functions.invoke(
           'participant-notifications',
           body: {
@@ -147,13 +145,14 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
 
       try {
         if (targetUserId != null && targetUserId.isNotEmpty) {
-          await Supabase.instance.client.from('notifications').insert({
-            'utilisateur_id': targetUserId,
-            'type': 'ADHESION',
-            'message': 'Votre demande pour « $listTitle » a été refusée.',
-            'est_lue': false,
-            'date_envoi': DateTime.now().toIso8601String(),
-          });
+          await insertInAppNotification(
+            userId: targetUserId,
+            type: 'ADHESION',
+            message: 'Votre demande pour "$listTitle" a ete refusee.',
+            action: 'join_refused',
+            listId: widget.listId,
+            sentAt: DateTime.now(),
+          );
         }
       } catch (_) {}
 
@@ -162,8 +161,6 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
         try {
           await Supabase.instance.client.auth.refreshSession();
         } catch (_) {}
-        final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-
         await Supabase.instance.client.functions.invoke(
           'participant-notifications',
           body: {
@@ -415,3 +412,5 @@ class _ParticipantsManageScreenState extends State<ParticipantsManageScreen> {
     );
   }
 }
+
+

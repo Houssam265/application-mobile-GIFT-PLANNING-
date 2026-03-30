@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/constants/supabase_constants.dart';
+import '../../../core/notifications/notification_insert.dart';
 import '../../products/domain/product_model.dart';
 import '../domain/contribution_history_model.dart';
 import '../domain/contribution_model.dart';
@@ -14,8 +14,6 @@ class ContributionRepository {
       try {
         await Supabase.instance.client.auth.refreshSession();
       } catch (_) {}
-      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-
       await _client.functions.invoke(
         'participant-notifications',
         body: body,
@@ -90,12 +88,15 @@ class ContributionRepository {
         ? '$name a ajusté sa promesse à ${amount.toStringAsFixed(2)}€ pour « $productName ».'
         : '$name a promis ${amount.toStringAsFixed(2)}€ pour « $productName ».';
 
-    await _client.from('notifications').insert({
-      'utilisateur_id': ownerId,
-      'type': 'CONTRIBUTION',
-      'message': msg,
-      'est_lue': false,
-    });
+    await insertInAppNotification(
+      client: _client,
+      userId: ownerId,
+      type: 'CONTRIBUTION',
+      message: msg,
+      action: 'contribution_received',
+      listId: listId,
+      productId: productId,
+    );
 
     await _invokeContributionPush({
       'action': 'contribution_received',
@@ -501,4 +502,6 @@ class ContributionRepository {
     await _recalculateProductFinancing(productId: produitId);
   }
 }
+
+
 

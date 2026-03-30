@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/notifications/notification_navigation.dart';
 import '../domain/notification_model.dart';
 import '../domain/notifications_notifier.dart';
 
@@ -141,6 +142,18 @@ class _NotificationsCenterScreenState
     }
   }
 
+  Future<void> _openNotification(NotificationModel n) async {
+    if (!n.estLue) {
+      await _toggleRead(n);
+    }
+    await navigateFromNotification(
+      action: n.action,
+      listId: n.listeId,
+      productId: n.produitId,
+      suggestionId: n.suggestionId,
+    );
+  }
+
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
   String _formatDate(DateTime d) {
@@ -162,6 +175,8 @@ class _NotificationsCenterScreenState
         return 'Contribution';
       case 'ADHESION':
         return 'Adhésion';
+      case 'PRODUIT':
+        return 'Produit';
       default:
         return type;
     }
@@ -181,6 +196,8 @@ class _NotificationsCenterScreenState
         return Icons.volunteer_activism_outlined;
       case 'ADHESION':
         return Icons.person_add_alt_1_outlined;
+      case 'PRODUIT':
+        return Icons.card_giftcard_outlined;
       default:
         return Icons.notifications_outlined;
     }
@@ -243,7 +260,7 @@ class _NotificationsCenterScreenState
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () => _toggleRead(n),
+                              onTap: () => _openNotification(n),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(

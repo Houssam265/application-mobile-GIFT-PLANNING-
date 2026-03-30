@@ -200,6 +200,9 @@ Deno.serve(async (req) => {
           message,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'product_added',
+          liste_id: listId,
+          produit_id: P.id,
         })
         await sendOneSignalPush(admin, {
           oneSignalAppId,
@@ -395,6 +398,8 @@ Deno.serve(async (req) => {
           message,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'list_archived',
+          liste_id: listId,
         })
       await sendOneSignalPush(admin, {
           oneSignalAppId,
@@ -452,6 +457,8 @@ Deno.serve(async (req) => {
           message,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'list_reactivated',
+          liste_id: listId,
         })
         await sendOneSignalPush(admin, {
           oneSignalAppId,
@@ -673,6 +680,9 @@ Deno.serve(async (req) => {
           message,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'product_fully_funded',
+          liste_id: listId,
+          produit_id: productId,
         })
         await sendOneSignalPush(admin, {
           oneSignalAppId,
@@ -741,6 +751,8 @@ Deno.serve(async (req) => {
         message,
         est_lue: false,
         date_envoi: new Date().toISOString(),
+        action: 'join_request',
+        liste_id: listId,
       })
 
       await sendOneSignalPush(admin, {
@@ -793,6 +805,8 @@ Deno.serve(async (req) => {
         message: msg,
         est_lue: false,
         date_envoi: new Date().toISOString(),
+        action: 'join_accepted',
+        liste_id: listId,
       })
 
       await sendOneSignalPush(admin, {
@@ -821,6 +835,8 @@ Deno.serve(async (req) => {
         message: msg,
         est_lue: false,
         date_envoi: new Date().toISOString(),
+        action: 'join_refused',
+        liste_id: listId,
       })
 
       await sendOneSignalPush(admin, {

@@ -6,6 +6,10 @@ class NotificationModel {
     required this.message,
     required this.estLue,
     required this.dateEnvoi,
+    this.action,
+    this.listeId,
+    this.produitId,
+    this.suggestionId,
   });
 
   final String id;
@@ -14,6 +18,10 @@ class NotificationModel {
   final String message;
   final bool estLue;
   final DateTime dateEnvoi;
+  final String? action;
+  final String? listeId;
+  final String? produitId;
+  final String? suggestionId;
 
   factory NotificationModel.fromMap(Map<String, dynamic> map) {
     final rawDate = map['date_envoi'];
@@ -30,6 +38,10 @@ class NotificationModel {
       message: (map['message'] as String?) ?? '',
       estLue: map['est_lue'] as bool? ?? false,
       dateEnvoi: dateEnvoi,
+      action: map['action'] as String?,
+      listeId: map['liste_id'] as String?,
+      produitId: map['produit_id'] as String?,
+      suggestionId: map['suggestion_id'] as String?,
     );
   }
 
@@ -43,6 +55,10 @@ class NotificationModel {
       message: message,
       estLue: estLue ?? this.estLue,
       dateEnvoi: dateEnvoi,
+      action: action,
+      listeId: listeId,
+      produitId: produitId,
+      suggestionId: suggestionId,
     );
   }
 }
