@@ -138,8 +138,15 @@ CREATE TABLE notifications (
     message TEXT NOT NULL,
     est_lue BOOLEAN DEFAULT FALSE,
     date_envoi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    action VARCHAR(50),
+    liste_id UUID,
+    produit_id UUID,
+    suggestion_id UUID,
     CONSTRAINT fk_utilisateur_notification FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
-    CONSTRAINT type_notification_check CHECK (type IN ('FINANCEMENT', 'ARCHIVAGE', 'SUGGESTION', 'RAPPEL', 'CONTRIBUTION', 'ADHESION'))
+    CONSTRAINT fk_notification_liste FOREIGN KEY (liste_id) REFERENCES listes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_produit FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_suggestion FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+    CONSTRAINT type_notification_check CHECK (type IN ('FINANCEMENT', 'ARCHIVAGE', 'SUGGESTION', 'RAPPEL', 'CONTRIBUTION', 'ADHESION', 'PRODUIT'))
 );
 
 -- ============================================================================
@@ -156,6 +163,8 @@ CREATE INDEX idx_contributions_utilisateur ON contributions(utilisateur_id);
 CREATE INDEX idx_suggestions_liste ON suggestions(liste_id);
 CREATE INDEX idx_notifications_utilisateur ON notifications(utilisateur_id);
 CREATE INDEX idx_notifications_non_lues ON notifications(utilisateur_id, est_lue) WHERE est_lue = FALSE;
+CREATE INDEX idx_notifications_liste ON notifications(liste_id);
+CREATE INDEX idx_notifications_produit ON notifications(produit_id);
 
 -- ============================================================================
 -- DATA SAMPLE

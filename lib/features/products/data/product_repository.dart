@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/notifications/notification_insert.dart';
 import '../../../core/services/storage_service.dart';
 import '../domain/product_model.dart';
 
@@ -9,9 +10,6 @@ class ProductRepository {
   final SupabaseClient _client = Supabase.instance.client;
   final _storage = StorageService();
 
-  /// Inserts a new product into the `produits` table.
-  /// If [imageBytes] is provided, uploads it to the `products` bucket first.
-  /// Returns the created [ProductModel].
   Future<ProductModel> addProduct({
     required String listeId,
     required String nom,
@@ -23,7 +21,7 @@ class ProductRepository {
     ProductCategorie? categorie,
   }) async {
     final user = _client.auth.currentUser;
-    if (user == null) throw Exception('Utilisateur non connecté.');
+    if (user == null) throw Exception('Utilisateur non connectÃ©.');
 
     final listRow = await _client
         .from('listes')
@@ -35,10 +33,9 @@ class ProductRepository {
     }
     final listStatus = (listRow['statut'] as String?) ?? 'ACTIVE';
     if (listStatus == 'ARCHIVEE') {
-      throw Exception('Cette liste est archivée. Ajout de produit impossible.');
+      throw Exception('Cette liste est archivÃ©e. Ajout de produit impossible.');
     }
 
-    // 1. Upload image if provided.
     String? imageUrl;
     if (imageBytes != null && imageFileName != null) {
       imageUrl = await _storage.upload(
@@ -49,7 +46,6 @@ class ProductRepository {
       );
     }
 
-    // 2. Build payload — statut_financement defaults to NON_FINANCE.
     final payload = <String, dynamic>{
       'liste_id': listeId,
       'nom': nom,
@@ -61,7 +57,6 @@ class ProductRepository {
       'statut_financement': StatutFinancement.nonFinance.dbValue,
     };
 
-    // 3. Insert and return the full row.
     final response = await _client
         .from('produits')
         .insert(payload)
@@ -74,7 +69,6 @@ class ProductRepository {
       try {
         await Supabase.instance.client.auth.refreshSession();
       } catch (_) {}
-      // Exclude the owner — they added it themselves, no need to notify.
       await _client.functions.invoke(
         'participant-notifications',
         body: {
@@ -85,34 +79,34 @@ class ProductRepository {
         },
       );
     } catch (_) {
-      // Fallback: insert in-app notifications directly, excluding the owner.
       final title = (listRow['titre'] as String?) ?? 'Liste';
       final parts = await _client
           .from('participations')
           .select('utilisateur_id')
           .eq('liste_id', listeId);
-      // Only participants (not the owner who added the product)
       final users = <String>{
         ...(parts as List)
             .map((e) => (e as Map<String, dynamic>)['utilisateur_id'] as String)
       };
-      users.remove(user.id); // ensure owner is excluded
-      final nowIso = DateTime.now().toIso8601String();
+      users.remove(user.id);
+      final sentAt = DateTime.now();
       for (final uid in users) {
-        await _client.from('notifications').insert({
-          'utilisateur_id': uid,
-          'type': 'PRODUIT',
-          'message': '« ${product.nom} » a été ajouté à « $title ».',
-          'est_lue': false,
-          'date_envoi': nowIso,
-        });
+        await insertInAppNotification(
+          client: _client,
+          userId: uid,
+          type: 'PRODUIT',
+          message: 'Â« ${product.nom} Â» a Ã©tÃ© ajoutÃ© Ã  Â« $title Â».',
+          action: 'product_added',
+          listId: listeId,
+          productId: product.id,
+          sentAt: sentAt,
+        );
       }
     }
 
     return product;
   }
 
-  /// Updates an existing product. Only uploads a new image if [imageBytes] is provided.
   Future<ProductModel> updateProduct({
     required String productId,
     required String nom,
@@ -124,7 +118,7 @@ class ProductRepository {
     ProductCategorie? categorie,
   }) async {
     final user = _client.auth.currentUser;
-    if (user == null) throw Exception('Utilisateur non connecté.');
+    if (user == null) throw Exception('Utilisateur non connectÃ©.');
 
     String? imageUrl;
     if (imageBytes != null && imageFileName != null) {
@@ -157,11 +151,7 @@ class ProductRepository {
     return ProductModel.fromMap(response);
   }
 
-
-
-  /// Deletes a product permanently and removes its image from storage if it exists.
   Future<void> deleteProduct(ProductModel product) async {
-    // 1. Delete image from storage if it exists
     if (product.imageUrl != null) {
       final path = StorageService.pathFromUrl(
         product.imageUrl!,
@@ -170,11 +160,9 @@ class ProductRepository {
       await _storage.delete(bucket: StorageBucket.products, path: path);
     }
 
-    // 2. Delete row from database
     await _client.from('produits').delete().eq('id', product.id);
   }
 
-  /// Fetches all products belonging to [listeId].
   Future<List<ProductModel>> getProductsByList(String listeId) async {
     final response = await _client
         .from('produits')
@@ -187,7 +175,6 @@ class ProductRepository {
         .toList();
   }
 
-  /// Fetches a single product by its id.
   Future<ProductModel> getProductById(String productId) async {
     final response = await _client
         .from('produits')

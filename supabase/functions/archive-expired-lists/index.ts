@@ -113,6 +113,8 @@ Deno.serve(async (req) => {
             message,
             est_lue: false,
             date_envoi: nowIso,
+            action: 'list_auto_archived',
+            liste_id: L.id,
           })
           await sendOneSignalPush({
             oneSignalAppId,
@@ -149,6 +151,8 @@ Deno.serve(async (req) => {
             message,
             est_lue: false,
             date_envoi: nowIso,
+            action: 'list_auto_archived',
+            liste_id: L.id,
           })
         }
       }

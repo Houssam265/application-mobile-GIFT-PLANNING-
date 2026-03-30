@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_links.dart';
-import '../../../core/constants/supabase_constants.dart';
+import '../../../core/notifications/notification_insert.dart';
 import '../../../core/services/storage_service.dart';
 
 enum ListVisibility { public, private, anonymous }
@@ -341,13 +341,15 @@ class ListRepository {
       final ownerId = listRow?['proprietaire_id'] as String?;
       final listTitle = listRow?['titre'] as String? ?? 'Liste';
       if (ownerId != null && ownerId.isNotEmpty) {
-        await _client.from('notifications').insert({
-          'utilisateur_id': ownerId,
-          'type': 'ADHESION',
-          'message': 'Nouvelle demande pour « $listTitle ».',
-          'est_lue': false,
-          'date_envoi': DateTime.now().toIso8601String(),
-        });
+        await insertInAppNotification(
+          client: _client,
+          userId: ownerId,
+          type: 'ADHESION',
+          message: 'Nouvelle demande pour "$listTitle".',
+          action: 'join_request',
+          listId: id,
+          sentAt: DateTime.now(),
+        );
       }
     } catch (_) {}
 
@@ -356,8 +358,6 @@ class ListRepository {
       try {
         await Supabase.instance.client.auth.refreshSession();
       } catch (_) {}
-      final token = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
-
       await _client.functions.invoke(
         'participant-notifications',
         body: {
@@ -372,3 +372,5 @@ class ListRepository {
     return 'PENDING';
   }
 }
+
+

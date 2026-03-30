@@ -175,14 +175,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     try {
       final myListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement)')
+          .select(
+            '*, produits(id, prix_cible, statut_financement, contributions(montant, est_annulee))',
+          )
           .eq('proprietaire_id', user.id)
           .eq('statut', 'ACTIVE')
           .order('date_creation', ascending: false);
 
       final joinedListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id, role)')
+          .select(
+            '*, produits(id, prix_cible, statut_financement, contributions(montant, est_annulee)), participations!inner(utilisateur_id, role)',
+          )
           .eq('participations.utilisateur_id', user.id)
           .eq('participations.role', 'INVITE')
           .neq('proprietaire_id', user.id)
@@ -191,14 +195,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
       final myArchivedListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement)')
+          .select(
+            '*, produits(id, prix_cible, statut_financement, contributions(montant, est_annulee))',
+          )
           .eq('proprietaire_id', user.id)
           .eq('statut', 'ARCHIVEE')
           .order('date_creation', ascending: false);
 
       final joinedArchivedListsData = await Supabase.instance.client
           .from('listes')
-          .select('*, produits(id, statut_financement), participations!inner(utilisateur_id, role)')
+          .select(
+            '*, produits(id, prix_cible, statut_financement, contributions(montant, est_annulee)), participations!inner(utilisateur_id, role)',
+          )
           .eq('participations.utilisateur_id', user.id)
           .eq('participations.role', 'INVITE')
           .neq('proprietaire_id', user.id)

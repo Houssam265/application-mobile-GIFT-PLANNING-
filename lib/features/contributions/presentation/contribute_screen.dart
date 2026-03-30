@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/notifications/notification_insert.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
@@ -207,12 +208,14 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
         final msg =
             '${productBefore.nom} est repassé sous les 100% de financement après l’annulation de votre contribution.';
 
-        await Supabase.instance.client.from('notifications').insert({
-          'utilisateur_id': _listOwnerId,
-          'type': 'CONTRIBUTION',
-          'message': msg,
-          'est_lue': false,
-        });
+        await insertInAppNotification(
+          userId: _listOwnerId!,
+          type: 'CONTRIBUTION',
+          message: msg,
+          action: 'product_funding_dropped',
+          listId: _product!.listeId,
+          productId: _product!.id,
+        );
 
         await ref.read(contributionRepositoryProvider).invokeFundingDroppedPush(
               listId: _product!.listeId,
@@ -455,4 +458,5 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
     );
   }
 }
+
 

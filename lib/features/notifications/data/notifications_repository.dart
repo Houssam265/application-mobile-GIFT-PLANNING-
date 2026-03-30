@@ -41,4 +41,21 @@ class NotificationsRepository {
         .eq('utilisateur_id', userId)
         .eq('est_lue', false);
   }
+
+  Future<void> deleteNotification(String notificationId, String userId) async {
+    await _client
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('utilisateur_id', userId);
+  }
+
+  Future<void> deleteNotifications(List<String> notificationIds, String userId) async {
+    if (notificationIds.isEmpty) return;
+    await _client
+        .from('notifications')
+        .delete()
+        .eq('utilisateur_id', userId)
+        .inFilter('id', notificationIds);
+  }
 }

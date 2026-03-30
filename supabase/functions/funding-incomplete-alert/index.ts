@@ -115,6 +115,8 @@ Deno.serve(async (req) => {
           message: fundingMsg,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'funding_incomplete_j1',
+          liste_id: L.id,
         })
         
         await sendOneSignalPush({

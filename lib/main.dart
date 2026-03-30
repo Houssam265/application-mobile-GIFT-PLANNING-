@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'core/constants/supabase_constants.dart';
+import 'core/notifications/notification_navigation.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/notifications/domain/notifications_notifier.dart';
@@ -120,48 +121,14 @@ Future<void> _initOneSignal() async {
 
       final productId = data['productId'] as String?;
 
-      switch (eventType) {
-        case 'join_request':
-          if (listId == null) return;
-          AppRouter.router.pushNamed(
-            AppRouteName.participantsManage,
-            pathParameters: {'id': listId},
-          );
-        case 'suggestion_new':
-          if (listId == null) return;
-          AppRouter.router.pushNamed(
-            AppRouteName.suggestionsManage,
-            pathParameters: {'id': listId},
-          );
-        case 'join_accepted':
-        case 'join_refused':
-        case 'suggestion_accepted':
-        case 'suggestion_refused':
-        case 'event_reminder':
-        case 'list_auto_archived':
-        case 'list_archived':
-        case 'funding_incomplete_j1':
-          if (listId == null) return;
-          AppRouter.router.pushNamed(
-            AppRouteName.listDetail,
-            pathParameters: {'id': listId},
-          );
-        case 'contribution_new':
-        case 'product_added':
-        case 'product_fully_funded':
-        case 'product_funding_dropped':
-          if (productId != null && productId.isNotEmpty) {
-            AppRouter.router.pushNamed(
-              AppRouteName.product,
-              pathParameters: {'id': productId},
-            );
-          } else if (listId != null) {
-            AppRouter.router.pushNamed(
-              AppRouteName.listDetail,
-              pathParameters: {'id': listId},
-            );
-          }
-      }
+      unawaited(
+        navigateFromNotification(
+          action: eventType == 'suggestion_new' ? 'suggestion_created' : eventType,
+          listId: listId,
+          productId: productId,
+          suggestionId: data['suggestionId'] as String?,
+        ),
+      );
     });
   } on MissingPluginException catch (e) {
     debugPrint('OneSignal indisponible sur cette plateforme: $e');

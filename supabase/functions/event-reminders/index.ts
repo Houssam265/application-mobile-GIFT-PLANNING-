@@ -131,6 +131,8 @@ Deno.serve(async (req) => {
           message,
           est_lue: false,
           date_envoi: nowIso,
+          action: 'event_reminder',
+          liste_id: L.id,
         })
         await sendOneSignalPush({
           oneSignalAppId,

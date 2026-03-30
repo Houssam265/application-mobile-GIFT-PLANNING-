@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/notifications/notification_navigation.dart';
 import '../domain/notification_model.dart';
 import '../domain/notifications_notifier.dart';
 
@@ -20,6 +21,7 @@ class NotificationsCenterScreen extends ConsumerStatefulWidget {
 class _NotificationsCenterScreenState
     extends ConsumerState<NotificationsCenterScreen> {
   List<NotificationModel> _items = [];
+  final Set<String> _selectedIds = <String>{};
   bool _loading = true;
   String? _error;
   RealtimeChannel? _notificationsChannel;
@@ -88,6 +90,7 @@ class _NotificationsCenterScreenState
       if (mounted) {
         setState(() {
           _items = list;
+          _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
           _loading = false;
         });
       }
@@ -141,6 +144,73 @@ class _NotificationsCenterScreenState
     }
   }
 
+  Future<void> _deleteNotification(NotificationModel n) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await ref.read(notificationsRepositoryProvider).deleteNotification(n.id, user.id);
+      setState(() {
+        _items.removeWhere((e) => e.id == n.id);
+        _selectedIds.remove(n.id);
+      });
+      await ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteSelectedNotifications() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || _selectedIds.isEmpty) return;
+    try {
+      final ids = _selectedIds.toList();
+      await ref.read(notificationsRepositoryProvider).deleteNotifications(ids, user.id);
+      setState(() {
+        _items.removeWhere((e) => _selectedIds.contains(e.id));
+        _selectedIds.clear();
+      });
+      await ref.read(notificationsNotifierProvider.notifier).refreshUnreadCount();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e')),
+      );
+    }
+  }
+
+  void _toggleSelection(NotificationModel n) {
+    setState(() {
+      if (_selectedIds.contains(n.id)) {
+        _selectedIds.remove(n.id);
+      } else {
+        _selectedIds.add(n.id);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedIds.clear();
+    });
+  }
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  Future<void> _openNotification(NotificationModel n) async {
+    if (!n.estLue) {
+      await _toggleRead(n);
+    }
+    await navigateFromNotification(
+      action: n.action,
+      listId: n.listeId,
+      productId: n.produitId,
+      suggestionId: n.suggestionId,
+    );
+  }
+
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
   String _formatDate(DateTime d) {
@@ -162,6 +232,8 @@ class _NotificationsCenterScreenState
         return 'Contribution';
       case 'ADHESION':
         return 'Adhésion';
+      case 'PRODUIT':
+        return 'Produit';
       default:
         return type;
     }
@@ -181,6 +253,8 @@ class _NotificationsCenterScreenState
         return Icons.volunteer_activism_outlined;
       case 'ADHESION':
         return Icons.person_add_alt_1_outlined;
+      case 'PRODUIT':
+        return Icons.card_giftcard_outlined;
       default:
         return Icons.notifications_outlined;
     }
@@ -189,17 +263,24 @@ class _NotificationsCenterScreenState
   @override
   Widget build(BuildContext context) {
     final hasUnread = _items.any((e) => !e.estLue);
+    final selectedCount = _selectedIds.length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(_selectionMode ? '$selectedCount sélectionnée(s)' : 'Notifications'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+          icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back_rounded),
+          onPressed: () => _selectionMode ? _clearSelection() : context.pop(),
         ),
         actions: [
-          if (hasUnread)
+          if (_selectionMode)
+            IconButton(
+              tooltip: 'Supprimer',
+              onPressed: _deleteSelectedNotifications,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          if (!_selectionMode && hasUnread)
             TextButton(
               onPressed: _markAllRead,
               child: const Text('Tout lu'),
@@ -243,7 +324,8 @@ class _NotificationsCenterScreenState
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () => _toggleRead(n),
+                              onLongPress: () => _toggleSelection(n),
+                              onTap: () => _selectionMode ? _toggleSelection(n) : _openNotification(n),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
@@ -316,16 +398,34 @@ class _NotificationsCenterScreenState
                                         ],
                                       ),
                                     ),
-                                    IconButton(
-                                      tooltip: n.estLue ? 'Marquer non lu' : 'Marquer lu',
-                                      icon: Icon(
-                                        n.estLue
-                                            ? Icons.mark_email_unread_outlined
-                                            : Icons.mark_email_read_outlined,
-                                        color: Colors.grey.shade700,
+                                    if (_selectionMode)
+                                      Checkbox(
+                                        value: _selectedIds.contains(n.id),
+                                        onChanged: (_) => _toggleSelection(n),
+                                      )
+                                    else
+                                      PopupMenuButton<String>(
+                                        tooltip: 'Actions',
+                                        onSelected: (value) async {
+                                          if (value == 'toggle-read') {
+                                            await _toggleRead(n);
+                                          } else if (value == 'delete') {
+                                            await _deleteNotification(n);
+                                          }
+                                        },
+                                        itemBuilder: (context) => [
+                                          PopupMenuItem<String>(
+                                            value: 'toggle-read',
+                                            child: Text(
+                                              n.estLue ? 'Marquer non lu' : 'Marquer lu',
+                                            ),
+                                          ),
+                                          const PopupMenuItem<String>(
+                                            value: 'delete',
+                                            child: Text('Supprimer'),
+                                          ),
+                                        ],
                                       ),
-                                      onPressed: () => _toggleRead(n),
-                                    ),
                                   ],
                                 ),
                               ),
