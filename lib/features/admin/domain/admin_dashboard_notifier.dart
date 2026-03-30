@@ -65,7 +65,7 @@ class AdminDashboardNotifier extends StateNotifier<AdminDashboardState> {
     final Map<DateTime, int> map = {};
     for (final d in dates) {
       final diff = d.weekday - 1;
-      final startOfWeek = DateTime(d.year, d.month, d.day).subtract(Duration(days: diff));
+      final startOfWeek = DateTime(d.year, d.month, d.day - diff);
       map[startOfWeek] = (map[startOfWeek] ?? 0) + 1;
     }
     
@@ -74,16 +74,16 @@ class AdminDashboardNotifier extends StateNotifier<AdminDashboardState> {
 
     final now = DateTime.now();
     final diffNow = now.weekday - 1;
-    final currentWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: diffNow));
+    final currentWeek = DateTime(now.year, now.month, now.day - diffNow);
     
-    final limitWeek = currentWeek.subtract(const Duration(days: 7 * 11));
+    final limitWeek = DateTime(currentWeek.year, currentWeek.month, currentWeek.day - (7 * 11));
     var start = entries.first.key.isBefore(limitWeek) ? limitWeek : entries.first.key;
 
     final filled = <DateTime, int>{};
     var current = start;
     while(current.isBefore(currentWeek) || current.isAtSameMomentAs(currentWeek)) {
       filled[current] = map[current] ?? 0;
-      current = current.add(const Duration(days: 7));
+      current = DateTime(current.year, current.month, current.day + 7);
     }
     return filled;
   }

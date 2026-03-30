@@ -74,6 +74,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   Future<void> _initData() async {
     final user = _repository.currentUser;
     if (user != null) {
+      state = state.copyWith(status: ProfileStatus.loading);
       _subscribeToProfile(user.id);
       try {
         final dbUser = await _repository.fetchUserProfile(user.id);
@@ -97,6 +98,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
               : oauthAvatar;
 
           state = state.copyWith(
+            status: ProfileStatus.success,
             displayName: (dbName != null && dbName.isNotEmpty)
                 ? dbName
                 : (meta['display_name'] as String? ?? meta['full_name'] as String?),
@@ -116,6 +118,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           final meta = user.userMetadata ?? {};
           final oauthAvatar = meta['avatar_url'] as String?;
           state = state.copyWith(
+            status: ProfileStatus.success,
             displayName: meta['display_name'] as String? ?? meta['full_name'] as String?,
             avatarUrl: oauthAvatar,
             isAdmin: false,
@@ -127,6 +130,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       } catch (e) {
         final meta = user.userMetadata ?? {};
         state = state.copyWith(
+          status: ProfileStatus.error,
           displayName: meta['display_name'] as String? ?? meta['full_name'] as String?,
           avatarUrl: meta['avatar_url'] as String?,
         );
