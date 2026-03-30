@@ -43,6 +43,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   String _searchQuery = '';
   RealtimeChannel? _participationsChannel;
   RealtimeChannel? _listsOwnerChannel;
+  RealtimeChannel? _listsVisibleChannel;
+  RealtimeChannel? _notificationsChannel;
   Timer? _reloadTimer;
 
   void _queueRefresh() {
@@ -67,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       _participationsChannel = Supabase.instance.client
           .channel('participations_user_${user.id}')
           .onPostgresChanges(
-            event: PostgresChangeEvent.update,
+            event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'participations',
             filter: PostgresChangeFilter(
@@ -83,12 +85,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       _listsOwnerChannel = Supabase.instance.client
           .channel('listes_owner_${user.id}')
           .onPostgresChanges(
-            event: PostgresChangeEvent.update,
+            event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'listes',
             filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'proprietaire_id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              _queueRefresh();
+            },
+          )
+          .subscribe();
+      _listsVisibleChannel = Supabase.instance.client
+          .channel('listes_visible_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'listes',
+            callback: (payload) {
+              final row = payload.newRecord.isNotEmpty
+                  ? payload.newRecord
+                  : payload.oldRecord;
+              final listId = row['id'] as String?;
+              final ownerId = row['proprietaire_id'] as String?;
+              final knownIds = {
+                ..._myLists.map((e) => e['id'] as String),
+                ..._joinedLists.map((e) => e['id'] as String),
+                ..._archivedLists.map((e) => e['id'] as String),
+              };
+
+              if (ownerId == user.id ||
+                  (listId != null && knownIds.contains(listId))) {
+                _queueRefresh();
+              }
+            },
+          )
+          .subscribe();
+      _notificationsChannel = Supabase.instance.client
+          .channel('home_notifications_${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'notifications',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'utilisateur_id',
               value: user.id,
             ),
             callback: (payload) {
@@ -105,6 +148,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     _searchController.dispose();
     _participationsChannel?.unsubscribe();
     _listsOwnerChannel?.unsubscribe();
+    _listsVisibleChannel?.unsubscribe();
+    _notificationsChannel?.unsubscribe();
     _reloadTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

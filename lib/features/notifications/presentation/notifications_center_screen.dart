@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,11 +22,51 @@ class _NotificationsCenterScreenState
   List<NotificationModel> _items = [];
   bool _loading = true;
   String? _error;
+  RealtimeChannel? _notificationsChannel;
+  Timer? _reloadTimer;
 
   @override
   void initState() {
     super.initState();
+    _bindRealtime();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _reloadTimer?.cancel();
+    _notificationsChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  void _queueReload() {
+    _reloadTimer?.cancel();
+    _reloadTimer = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _load();
+    });
+  }
+
+  void _bindRealtime() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    _notificationsChannel = Supabase.instance.client
+        .channel('notifications_center_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'utilisateur_id',
+            value: user.id,
+          ),
+          callback: (payload) {
+            _queueReload();
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _load() async {

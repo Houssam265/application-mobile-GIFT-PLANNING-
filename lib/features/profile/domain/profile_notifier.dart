@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/profile_repository.dart';
 import 'profile_state.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository();
@@ -88,22 +90,39 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
             );
           }
 
+          // Prefer the DB URL (already mirrored to Storage); fall back to OAuth metadata.
+          final oauthAvatar = meta['avatar_url'] as String?;
+          final resolvedAvatar = (dbAvatar != null && dbAvatar.isNotEmpty)
+              ? dbAvatar
+              : oauthAvatar;
+
           state = state.copyWith(
-            displayName: (dbName != null && dbName.isNotEmpty) 
-                ? dbName 
+            displayName: (dbName != null && dbName.isNotEmpty)
+                ? dbName
                 : (meta['display_name'] as String? ?? meta['full_name'] as String?),
-            avatarUrl: (dbAvatar != null && dbAvatar.isNotEmpty) 
-                ? dbAvatar 
-                : meta['avatar_url'] as String?,
+            avatarUrl: resolvedAvatar,
             isAdmin: dbIsAdmin,
           );
+
+          // On Web, 3rd-party avatar URLs (Google, etc.) cause CORS/EncodingError.
+          // Mirror once to our own Supabase Storage bucket.
+          if (kIsWeb &&
+              resolvedAvatar != null &&
+              _isThirdPartyUrl(resolvedAvatar) &&
+              (dbAvatar == null || dbAvatar.isEmpty)) {
+            _mirrorThirdPartyAvatar(resolvedAvatar);
+          }
         } else {
           final meta = user.userMetadata ?? {};
+          final oauthAvatar = meta['avatar_url'] as String?;
           state = state.copyWith(
             displayName: meta['display_name'] as String? ?? meta['full_name'] as String?,
-            avatarUrl: meta['avatar_url'] as String?,
+            avatarUrl: oauthAvatar,
             isAdmin: false,
           );
+          if (kIsWeb && oauthAvatar != null && _isThirdPartyUrl(oauthAvatar)) {
+            _mirrorThirdPartyAvatar(oauthAvatar);
+          }
         }
       } catch (e) {
         final meta = user.userMetadata ?? {};
@@ -112,6 +131,36 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           avatarUrl: meta['avatar_url'] as String?,
         );
       }
+    }
+  }
+
+  /// Returns true when [url] belongs to a 3rd-party host (not our Supabase project).
+  bool _isThirdPartyUrl(String url) {
+    try {
+      final host = Uri.parse(url).host;
+      final ownHost = Uri.parse(SupabaseConstants.supabaseUrl).host;
+      return host != ownHost;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Calls the `mirror-avatar` edge function to re-host the OAuth avatar in our
+  /// Supabase Storage bucket, then updates [state.avatarUrl] with the safe URL.
+  Future<void> _mirrorThirdPartyAvatar(String thirdPartyUrl) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'mirror-avatar',
+        body: {'avatarUrl': thirdPartyUrl},
+      );
+      final data = response.data as Map<String, dynamic>?;
+      final publicUrl = data?['publicUrl'] as String?;
+      if (publicUrl != null && publicUrl.isNotEmpty) {
+        state = state.copyWith(avatarUrl: publicUrl);
+      }
+    } catch (e) {
+      // Non-fatal: the app still works, avatar just won't render on Web.
+      debugPrint('[ProfileNotifier] mirror-avatar failed: $e');
     }
   }
 

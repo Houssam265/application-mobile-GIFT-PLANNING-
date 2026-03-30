@@ -16,6 +16,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._repository) : super(const AuthState());
 
+  void reset() {
+    state = const AuthState();
+  }
+
   Future<void> register(String email, String password) async {
     state = state.copyWith(status: AuthStatus.loading);
     try {
@@ -70,6 +74,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: 'Erreur Supabase : ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> verifyRecoveryCode(String email, String code) async {
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.verifyRecoveryCode(email: email, code: code);
+      state = state.copyWith(status: AuthStatus.success);
+    } catch (e) {
+      final errorStr = e.toString().toLowerCase();
+      var errorMessage = 'Code invalide ou expiré.';
+      if (errorStr.contains('expired')) {
+        errorMessage = 'Le code a expiré. Demande un nouveau code.';
+      }
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: errorMessage,
       );
     }
   }
