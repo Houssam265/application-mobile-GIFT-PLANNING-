@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -50,6 +51,9 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
   String? _newCoverFileName;
 
   final Map<String, String> _userNamesCache = {};
+  RealtimeChannel? _listChannel;
+  RealtimeChannel? _participationsChannel;
+  Timer? _reloadTimer;
 
   Future<void> _fetchMissingNames(List<String> userIds) async {
     final missing = userIds.where((id) => !_userNamesCache.containsKey(id)).toList();
@@ -84,15 +88,68 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
     _eventNameController = TextEditingController();
+    _bindRealtime();
     _loadList();
   }
 
   @override
   void dispose() {
+    _reloadTimer?.cancel();
+    _listChannel?.unsubscribe();
+    _participationsChannel?.unsubscribe();
     _titleController.dispose();
     _descriptionController.dispose();
     _eventNameController.dispose();
     super.dispose();
+  }
+
+  void _queueReload() {
+    _reloadTimer?.cancel();
+    _reloadTimer = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _loadList();
+    });
+  }
+
+  void _bindRealtime() {
+    _listChannel = Supabase.instance.client
+        .channel('list_detail_${widget.listId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'listes',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.listId,
+          ),
+          callback: (payload) {
+            if (payload.eventType == PostgresChangeEvent.delete) {
+              if (!mounted) return;
+              context.go('/home');
+              return;
+            }
+            _queueReload();
+          },
+        )
+        .subscribe();
+
+    _participationsChannel = Supabase.instance.client
+        .channel('list_detail_participations_${widget.listId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'participations',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'liste_id',
+            value: widget.listId,
+          ),
+          callback: (payload) {
+            _queueReload();
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _loadList() async {
