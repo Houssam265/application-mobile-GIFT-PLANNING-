@@ -64,17 +64,32 @@ class DashboardListCard extends StatelessWidget {
       daysLabel = isArchived ? '—' : '—';
     }
 
-    double score = 0;
-    for (final p in products) {
+    final totalTarget = products.fold<double>(0, (sum, p) {
       final m = p as Map<String, dynamic>;
-      if (m['statut_financement'] == 'FINANCE') {
-        score += 1;
-      } else if (m['statut_financement'] == 'PARTIELLEMENT_FINANCE') {
-        score += 0.5;
-      }
-    }
-    final progressPercent =
-        products.isEmpty ? 0 : ((score / products.length) * 100).round();
+      return sum + (double.tryParse(m['prix_cible']?.toString() ?? '') ?? 0);
+    });
+    final totalPromised = products.fold<double>(0, (sum, p) {
+      final m = p as Map<String, dynamic>;
+      final contributions = m['contributions'] as List<dynamic>? ?? const [];
+      final productPromised = contributions
+          .where(
+            (c) => (c as Map<String, dynamic>)['est_annulee'] != true,
+          )
+          .fold<double>(
+            0,
+            (acc, c) =>
+                acc +
+                (double.tryParse(
+                      (c as Map<String, dynamic>)['montant']?.toString() ?? '',
+                    ) ??
+                    0),
+          );
+      return sum + productPromised;
+    });
+    final progressValue = totalTarget <= 0
+        ? 0.0
+        : (totalPromised / totalTarget).clamp(0.0, 1.0);
+    final progressPercent = (progressValue * 100).round();
 
     final statusLabel = isArchived ? 'Archivée' : 'Active';
     final statusColor = isArchived
@@ -287,7 +302,7 @@ class DashboardListCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: LinearProgressIndicator(
-                      value: products.isEmpty ? 0 : (score / products.length).clamp(0.0, 1.0),
+                      value: progressValue,
                       backgroundColor: Colors.grey.shade200,
                       valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2E86AB)),
                       minHeight: 8,

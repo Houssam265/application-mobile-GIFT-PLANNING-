@@ -27,7 +27,7 @@ class NotificationModel {
     final rawDate = map['date_envoi'];
     DateTime dateEnvoi;
     if (rawDate is String) {
-      dateEnvoi = DateTime.tryParse(rawDate) ?? DateTime.now();
+      dateEnvoi = (DateTime.tryParse(rawDate) ?? DateTime.now()).toLocal();
     } else {
       dateEnvoi = DateTime.now();
     }
