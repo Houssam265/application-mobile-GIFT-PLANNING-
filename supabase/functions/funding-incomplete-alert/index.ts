@@ -1,4 +1,4 @@
-// GiftPlan – Alerte J-1 au propriétaire si le financement de la liste est incomplet.
+// GiftPlan – Alerte J-1 si le financement de la liste est incomplet (tous les participants).
 // Déployer puis planifier en cron quotidien avec Authorization: Bearer SERVICE_ROLE_KEY.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -132,6 +132,50 @@ Deno.serve(async (req) => {
           },
         })
         notificationsSent++
+
+        const fundingMsgInvites =
+          `J-1 : La liste « ${L.titre} » compte encore ${n} produit(s) non entièrement financé(s).`
+
+        const { data: parts, error: pErr } = await supabase
+          .from('participations')
+          .select('utilisateur_id')
+          .eq('liste_id', L.id)
+          .in('role', ['INVITE'])
+
+        if (pErr) {
+          console.error(pErr)
+          continue
+        }
+
+        const userIds = new Set(
+          ((parts ?? []) as { utilisateur_id: string }[]).map((p) => p.utilisateur_id),
+        )
+
+        for (const uid of userIds) {
+          await supabase.from('notifications').insert({
+            utilisateur_id: uid,
+            type: 'FINANCEMENT',
+            message: fundingMsgInvites,
+            est_lue: false,
+            date_envoi: nowIso,
+            action: 'funding_incomplete_j1',
+            liste_id: L.id,
+          })
+
+          await sendOneSignalPush({
+            oneSignalAppId,
+            oneSignalRestApiKey,
+            externalUserId: uid,
+            headings: 'Financement incomplet',
+            contents: fundingMsgInvites,
+            data: {
+              event: 'funding_incomplete_j1',
+              listId: L.id,
+              listTitle: L.titre,
+            },
+          })
+          notificationsSent++
+        }
       }
     }
 
